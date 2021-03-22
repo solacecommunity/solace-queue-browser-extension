@@ -3,7 +3,7 @@ View the payload of a message from the console inline
 
 # Usage
 1.  Clone or download this repository to a folder on your device.
-2.  Go to  **chrome://extensions/**.
+2.  Go to  **[chrome://extensions/](chrome://extensions/)**
 3.  At the top right, turn on  **Developer mode**.
 4.  Click  **Load unpacked**.
 5.  Find and select the folder.
