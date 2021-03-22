@@ -11,10 +11,11 @@ View the payload of a message from the console inline
 ![image](https://user-images.githubusercontent.com/8796208/112061250-7faa8380-8b5e-11eb-811b-de013e44fd6a.png)
 8. Fill in your connection details you find on Solace Web Messaging:
 URL: Secured Web Messaging Host like wss://xxxxxxxxpz3.messaging.solace.cloud:443
-8. Go to https://console.solace.cloud/ -> Cluster Manager -> Click on the Queues tile
+8. Go to https://console.solace.cloud/ -> Cluster Manager -> Manage -> Click on the Queues tile
 9. Select your queue in the list 
 10. View Tab Messages Queued
 11. Right click on the list and select in your context menu "Find messages on queue"
+![image](https://user-images.githubusercontent.com/8796208/112063582-ea10f300-8b61-11eb-992a-cdfa2a67ff3a.png)
 13. messages will be displayed inline 
 ![image](https://user-images.githubusercontent.com/8796208/112061173-6570a580-8b5e-11eb-8803-9f3a4ca691c9.png)
 
