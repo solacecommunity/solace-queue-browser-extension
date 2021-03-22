@@ -8,13 +8,16 @@ View the payload of a message from the console inline
 4.  Click  **Load unpacked**.
 5.  Find and select the folder.
 6. Click in Detail button, scroll down and click on Extension options
-7. Fill in your connection details you find on Solace Web Messaging:
+![image](https://user-images.githubusercontent.com/8796208/112061250-7faa8380-8b5e-11eb-811b-de013e44fd6a.png)
+8. Fill in your connection details you find on Solace Web Messaging:
 URL: Secured Web Messaging Host like wss://xxxxxxxxpz3.messaging.solace.cloud:443
 8. Go to https://console.solace.cloud/ -> Cluster Manager -> Click on the Queues tile
 9. Select your queue in the list 
 10. View Tab Messages Queued
 11. Right click on the list and select in your context menu "Find messages on queue"
 13. messages will be displayed inline 
+![image](https://user-images.githubusercontent.com/8796208/112061173-6570a580-8b5e-11eb-8803-9f3a4ca691c9.png)
+
 
 # Contribute
 This extension was build to proof that the payload of messages can be viewed inline. If you want to add new features or make improvements, feel free to add a pull request!
