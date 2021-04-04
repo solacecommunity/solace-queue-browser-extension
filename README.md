@@ -1,7 +1,12 @@
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
+
 # Solace-browser-extension
 View the payload of a message from the console inline
 
-# Usage
+## Overview
+This extension was build to proof that the payload of messages can be viewed inline. If you want to add new features or make improvements, feel free to add a pull request!
+
+## Getting started quickly
 1.  Clone or download this repository to a folder on your device.
 2.  Go to  **[chrome://extensions/](chrome://extensions/)**
 3.  At the top right, turn on  **Developer mode**.
@@ -20,8 +25,25 @@ URL: Secured Web Messaging Host like wss://xxxxxxxxpz3.messaging.solace.cloud:44
 ![image](https://user-images.githubusercontent.com/8796208/112061173-6570a580-8b5e-11eb-8803-9f3a4ca691c9.png)
 
 
-# Contribute
-This extension was build to proof that the payload of messages can be viewed inline. If you want to add new features or make improvements, feel free to add a pull request!
-
-# Use at your own risk
+## Documentation
+See also a thread on https://solace.community/discussion/comment/2103#Comment_2103
 Please note that the use of this extension is at your own risk.
+
+## Resources
+
+For more information try these resources:
+
+- The Solace Developer Portal website at: https://solace.dev
+- Ask the [Solace Community](https://solace.community)
+
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
+
+## Authors
+
+See the list of [contributors](https://github.com/solacecommunity/<github-repo>/graphs/contributors) who participated in this project.
+
+## License
+
+See the [LICENSE](LICENSE) file for details.
