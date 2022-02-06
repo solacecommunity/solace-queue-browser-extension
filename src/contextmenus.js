@@ -13,6 +13,8 @@ chrome.contextMenus.onClicked.addListener(contextMenuHandler);
 
 function contextMenuHandler(info, tab) {
     if (info.menuItemId === contextMenus.findMessagesOnQueue) {
-        findMessages();
+        
+		findMessagesWithDynamicQueueNames();
+		//findMessages();
     }
 }
