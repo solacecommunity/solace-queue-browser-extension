@@ -20,7 +20,7 @@
     "content_scripts": [
         {
           "matches": [
-            "https://*.messaging.solace.cloud:943/*"
+            "<all_urls>"
           ],
           "js": [
             "src/inject/inject.js"
