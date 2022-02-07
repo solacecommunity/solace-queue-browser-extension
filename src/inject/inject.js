@@ -13,4 +13,26 @@ chrome.runtime.onMessage.addListener(
 				farewell: request.action
 			});
 		}
+		
+		
+		if (request.action === "extractQueueName")
+		{
+		  var datarow = document.getElementsByClassName('title title-content detail-title-width ellipsis-data');
+		  var rawQueueName =  datarow[0].innerHTML;
+		  console.log('RAW QUEUE NAME on PAGE: '+rawQueueName);
+		  var processedQueueName = transformRawQueueName(rawQueueName);
+		  console.log('PROCESSED QUEUE NAME on PAGE: '+processedQueueName);
+		  sendResponse({queueNameonPage: processedQueueName});
+		}		
+		
+		
 	});
+	
+	
+function transformRawQueueName(rawQueueName)
+{
+
+	/*The QUEUE name is represented in the tag <font color="#BFBFBF">Queues | </font> NAME OF THE QUEUE*/
+	return rawQueueName.substr(rawQueueName.indexOf('</font>')+7);
+
+}	
