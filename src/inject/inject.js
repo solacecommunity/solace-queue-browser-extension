@@ -10,7 +10,7 @@ chrome.runtime.onMessage.addListener(
 			newDiv.appendChild(newContent);
 			correctDiv.appendChild(newDiv);
 			sendResponse({
-				farewell: request.action
+				'farewell': request.action
 			});
 		}
 		
@@ -22,10 +22,9 @@ chrome.runtime.onMessage.addListener(
 		  console.log('RAW QUEUE NAME on PAGE: '+rawQueueName);
 		  var processedQueueName = transformRawQueueName(rawQueueName);
 		  console.log('PROCESSED QUEUE NAME on PAGE: '+processedQueueName);
-		  sendResponse({queueNameonPage: processedQueueName});
+		  sendResponse({'queueNameonPage': processedQueueName});
 		}		
-		
-		
+
 	});
 	
 	

@@ -1,20 +1,20 @@
 {
     "name": "Appronto Solace message view Extension",
     "description": "Extension to browse solace message queues and inspect the payload.",
-    "version": "0.1",
-    "manifest_version": 2,
+    "version": "0.2",
+    "manifest_version": 3,
     "permissions": [
-        "https://*.messaging.solace.cloud:943/*",
         "storage",
         "activeTab",
         "contextMenus",
         "tabs"
     ],
+    "host_permissions": [
+      "https://*.messaging.solace.cloud:943/*",
+      "*://*/*"
+    ],
     "background": {
-        "persistent": true,
-        "scripts": [
-            "src/lib/solclient.js", "src/contextmenus.js", "src/findmessages.js"
-        ]
+          "service_worker": "worker_wrapper.js"
     },
     "options_page": "src/options/options.html",
     "content_scripts": [
