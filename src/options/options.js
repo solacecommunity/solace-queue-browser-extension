@@ -3,6 +3,7 @@ function save_options() {
   chrome.storage.local.set({'solaceVpnName':document.getElementById('vpnName').value});
   chrome.storage.local.set({'solaceUserName':document.getElementById('userName').value});
   chrome.storage.local.set({'solacePassword':document.getElementById('password').value});
+}
 
 function restore_options() {
   chrome.storage.local.get(["solaceURL"]).then((result) => {
@@ -26,5 +27,6 @@ function restore_options() {
     }
   });
 }
+
 document.addEventListener('DOMContentLoaded', restore_options);
 document.getElementById('save').addEventListener('click', save_options);
