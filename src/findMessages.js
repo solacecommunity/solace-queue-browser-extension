@@ -31,45 +31,76 @@ function getQueueFromPageAndProcessMessages(){
 }
 
 
+
 function findMessages(dynamicQueueName) {
 	console.log('findMessages executed - on QUEUE NAME: '+dynamicQueueName);
     var factoryProps = new solace.SolclientFactoryProperties();
     factoryProps.profile = solace.SolclientFactoryProfiles.version10;
     solace.SolclientFactory.init(factoryProps);
     //queueName = localStorage.getItem('queuename');
+    var solaceUrl;
+    var solaceVpnName;
+    var solaceUserName;
+    var solacePassword;
 	queueName = dynamicQueueName;
-    var session = solace.SolclientFactory.createSession({
-        url: localStorage.getItem('solaceURL'),
-        vpnName: localStorage.getItem('solaceVpnName'),
-        userName: localStorage.getItem('solaceUserName'),
-        password: localStorage.getItem('solacePassword')
-    });
-    try {
-        session.connect(); // Connect session
-        qb = session.createQueueBrowser({
-            queueDescriptor: {
-                name: queueName,
-                type: "QUEUE"
+    chrome.storage.local.get(["solaceURL"]).then((result) => {
+        if (result.solaceURL) {
+            solaceUrl = result.solaceURL;
+        } 
+            chrome.storage.local.get(["solaceVpnName"]).then((result) => {
+            if(result.solaceVpnName) {
+                solaceVpnName = result.solaceVpnName;
             }
+            chrome.storage.local.get(["solaceUserName"]).then((result) => {
+                if(result.solaceUserName) {
+                    solaceUserName = result.solaceUserName;
+                }
+                    chrome.storage.local.get(["solacePassword"]).then((result) => {
+                        if(result.solacePassword) {
+                            solacePassword = result.solacePassword;
+                        }
+                        var session = solace.SolclientFactory.createSession({
+                            url: solaceUrl,
+                            vpnName: solaceVpnName,
+                            userName: solaceUserName,
+                            password: solacePassword
+                        });
+                        try {
+                            session.connect(); // Connect session
+                            qb = session.createQueueBrowser({
+                                queueDescriptor: {
+                                    name: queueName,
+                                    type: "QUEUE"
+                                }
+                            });
+                            qb.on(solace.QueueBrowserEventName.CONNECT_FAILED_ERROR,
+                                function connectFailedErrorEventCb(error) {
+                                    console.log(error);
+                                });
+                            qb.on(solace.QueueBrowserEventName.MESSAGE,
+                                function messageCB(message) {
+                                    payload = message.getBinaryAttachment();
+                                    sendToPage(message.rc.low, payload);        
+                                });
+                            qb.connect(); // Connect with QueueBrowser to receive QueueBrowserEvents.
+                            setTimeout(
+                                function() {
+                                    qb.disconnect();
+                                    session.disconnect();
+                                }, 5000); // Disconnect after 5 seconds.
+                        } catch (error) {
+                            console.log(error);
+                        }
+                });
+            });
         });
-        qb.on(solace.QueueBrowserEventName.CONNECT_FAILED_ERROR,
-            function connectFailedErrorEventCb(error) {
-                console.log(error);
-            });
-        qb.on(solace.QueueBrowserEventName.MESSAGE,
-            function messageCB(message) {
-                payload = message.getBinaryAttachment();
-                sendToPage(message.rc.low, payload);        
-            });
-        qb.connect(); // Connect with QueueBrowser to receive QueueBrowserEvents.
-        setTimeout(
-            function() {
-                qb.disconnect();
-                session.disconnect();
-            }, 5000); // Disconnect after 5 seconds.
-    } catch (error) {
-        console.log(error);
-    }
+    });
+   
+    
+    
+
+    
+    
 
 }
 function sendToPage(messageId, payload){
