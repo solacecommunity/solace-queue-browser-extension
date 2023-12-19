@@ -26,93 +26,109 @@ function getQueueFromPageAndProcessMessages(){
 				findMessages(response.queueNameonPage);
 			  });
 			});
-
-	
 }
-
-
 
 function findMessages(dynamicQueueName) {
 	console.log('findMessages executed - on QUEUE NAME: '+dynamicQueueName);
-    var factoryProps = new solace.SolclientFactoryProperties();
-    factoryProps.profile = solace.SolclientFactoryProfiles.version10;
-    solace.SolclientFactory.init(factoryProps);
-    //queueName = localStorage.getItem('queuename');
-    var solaceUrl;
-    var solaceVpnName;
-    var solaceUserName;
-    var solacePassword;
-	queueName = dynamicQueueName;
-    chrome.storage.local.get(["solaceURL"]).then((result) => {
-        if (result.solaceURL) {
-            solaceUrl = result.solaceURL;
-        } 
-            chrome.storage.local.get(["solaceVpnName"]).then((result) => {
-            if(result.solaceVpnName) {
-                solaceVpnName = result.solaceVpnName;
-            }
-            chrome.storage.local.get(["solaceUserName"]).then((result) => {
-                if(result.solaceUserName) {
-                    solaceUserName = result.solaceUserName;
-                }
-                    chrome.storage.local.get(["solacePassword"]).then((result) => {
-                        if(result.solacePassword) {
-                            solacePassword = result.solacePassword;
-                        }
-                        var session = solace.SolclientFactory.createSession({
-                            url: solaceUrl,
-                            vpnName: solaceVpnName,
-                            userName: solaceUserName,
-                            password: solacePassword
-                        });
-                        try {
-                            session.connect(); // Connect session
-                            qb = session.createQueueBrowser({
-                                queueDescriptor: {
-                                    name: queueName,
-                                    type: "QUEUE"
-                                }
-                            });
-                            qb.on(solace.QueueBrowserEventName.CONNECT_FAILED_ERROR,
-                                function connectFailedErrorEventCb(error) {
-                                    console.log(error);
-                                });
-                            qb.on(solace.QueueBrowserEventName.MESSAGE,
-                                function messageCB(message) {
-                                    payload = message.getBinaryAttachment();
-                                    sendToPage(message.rc.low, payload);        
-                                });
-                            qb.connect(); // Connect with QueueBrowser to receive QueueBrowserEvents.
-                            setTimeout(
-                                function() {
-                                    qb.disconnect();
-                                    session.disconnect();
-                                }, 5000); // Disconnect after 5 seconds.
-                        } catch (error) {
-                            console.log(error);
-                        }
-                });
+    
+    try {
+        var factoryProps = new solace.SolclientFactoryProperties();
+        factoryProps.profile = solace.SolclientFactoryProfiles.version10;
+        solace.SolclientFactory.init(factoryProps);
+        //queueName = localStorage.getItem('queuename');
+    } catch (error) {
+        sendErrorToPage(error.message);
+    }
+
+    var loginDetails = {
+        url: null,
+        vpn: null,
+        username: null,
+        pw: null,
+    }
+    
+    chrome.storage.local.get(["loginDetails"]).then((result) => {
+
+        // Get log details from local storage
+        var storedLoginDetails = result.loginDetails;
+        if (storedLoginDetails.solaceURL) {
+            loginDetails.url = storedLoginDetails.solaceURL;
+        } else {
+            sendErrorToPage("URL parameter is missing from Options");
+            return;
+        }
+        if (storedLoginDetails.solaceVpnName) {
+            loginDetails.vpn = storedLoginDetails.solaceVpnName;
+        } else {
+            sendErrorToPage("VPN parameter is missing from Options");
+            return;
+        }
+        if (storedLoginDetails.solaceUserName) {
+            loginDetails.username = storedLoginDetails.solaceUserName;
+        } else {
+            sendErrorToPage("Username parameter is missing from Options");
+            return;
+        }
+        if (storedLoginDetails.solacePassword) {
+            loginDetails.pw = storedLoginDetails.solacePassword;
+        } else {
+            sendErrorToPage("Password parameter is missing from Options");
+            return;
+        }
+
+
+        try {
+            // Login to Solace
+            var session = solace.SolclientFactory.createSession({
+                url: loginDetails.url,
+                vpnName: loginDetails.vpn,
+                userName: loginDetails.username,
+                password: loginDetails.pw
             });
-        });
+
+            session.connect(); // Connect session
+            var qb = session.createQueueBrowser({
+                queueDescriptor: {
+                    name: dynamicQueueName,
+                    type: "QUEUE"
+                }
+            });
+            qb.on(solace.QueueBrowserEventName.CONNECT_FAILED_ERROR,
+                function connectFailedErrorEventCb(error) {
+                    console.error(error.message);
+                    sendErrorToPage(error.message);
+                });
+            qb.on(solace.QueueBrowserEventName.MESSAGE,
+                function messageCB(message) {
+                    var appMsgId = message.getApplicationMessageId();
+                    if (appMsgId === undefined) { appMsgId = 'Not specified'; }
+                    var payload = message.getBinaryAttachment();
+                    sendPayloadToPage(message.rc.low, appMsgId, payload);        
+                });
+            qb.connect(); // Connect with QueueBrowser to receive QueueBrowserEvents.
+            setTimeout(
+                function() {
+                    qb.disconnect();
+                    session.disconnect();
+                }, 5000); // Disconnect after 5 seconds.
+        } catch (error) {
+            console.error(error.message);
+            sendErrorToPage(error.message);
+        }
+
     });
-   
-    
-    
-
-    
-    
-
 }
-function sendToPage(messageId, payload){
-    chrome.tabs.query({
-        active: true,
-        currentWindow: true
-    }, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, {
-            action: "setPayload",
-            messageId: messageId,
-            payload: payload
-        });
 
+
+function sendPayloadToPage(messageId, appMsgId, payload){
+    chrome.tabs.query({active: true,currentWindow: true}, function (tabs) {
+        chrome.tabs.sendMessage(tabs[0].id, {action: "setPayload", appMsgId: appMsgId, messageId: messageId, payload: payload});
+
+    });
+}
+
+function sendErrorToPage(error) {
+    chrome.tabs.query({active: true,currentWindow: true}, function (tabs) {
+        chrome.tabs.sendMessage(tabs[0].id, {action: "setError", error: error});
     });
 }
