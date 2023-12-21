@@ -16,7 +16,11 @@
     "background": {
           "service_worker": "worker_wrapper.js"
     },
-    "options_page": "src/options/options.html",
+    
+    "options_ui": {
+      "page": "src/options/options.html",
+      "open_in_tab": true
+    },
     "content_scripts": [
         {
           "matches": [
