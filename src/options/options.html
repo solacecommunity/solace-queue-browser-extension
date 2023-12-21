@@ -1,31 +1,38 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Appronto Developer Helper options (use at your own risk!)</title>
-    <link rel="stylesheet" href="options.css">
-  </head>
-  <body>
-    <div class="teststyle">
-      <div class="teststyle2">
-        <span>Solace URL</span>
-        <input type="text" id="solaceURL"/>
-      </div>
-      <div class="teststyle2">
-        <span>vpnName</span>
-        <input type="text" id="vpnName" />
-      </div>
-      <div class="teststyle2">
-        <span>userName</span>
-        <input type="text" id="userName" />        
-      </div>
-      <div class="teststyle2">
-        <span>password</span>
-        <input type="password" id="password" />        
-      </div>
-    </div>
-    <div id="status"></div>
-    <button id="save">Save</button>
 
-    <script src="options.js"></script>
-  </body>
+<head lang="en">
+  <title>Appronto Developer Helper options (use at your own risk!)</title>
+  <link rel="stylesheet" type="text/css" href="options.css" />
+</head>
+
+<body>
+    <div class="center-input">
+      <div>
+        <img class='solace-logo' src="../img/Solace-logo-green.png" />
+      </div>
+    <div >
+      <span>Username</span>
+      <input type="text" id="userName" class="save-connection-input" placeholder="solace-cloud-client" />
+    </div>
+    <div>
+      <span>Password</span>
+      <input type="password" id="password" class="save-connection-input" placeholder="**************" />
+    </div>
+    <div>
+      <span>Message VPN</span>
+      <input type="text" id="msgVpn"  class="save-connection-input" placeholder="example-message-vpn"/>
+    </div>
+    <div>
+      <span>Secured SMF Host</span>
+      <input type="text" id="smfHost" class="save-connection-input" placeholder="wss://example.messaging.solace.cloud:12345" />
+    </div>
+    <!-- <button id="save" class="shrink-border">Save</button> -->
+    <button id="save" class="save-btn"></button>
+  </div>
+  <div id="status"></div>
+
+  <script src="options.js"></script>
+</body>
+
 </html>
