@@ -116,11 +116,11 @@ chrome.runtime.onMessage.addListener(
 					const userPropPre = createPreElement(userPropPreId, JSON.stringify(request.userProps, null, "\t"));
 					
 					// Create Copy button for the User Properties
-					const userPropBtnText = 'Copy Message to Clipboard';
+					const userPropBtnText = 'Copy Properties to Clipboard';
 					const userPropCopyBtn = createCopyButton(userPropCopyBtnId, userPropBtnText, userPropPreId, userPropCopyLblId);
 
 					// Create Copied label for the User Properties
-					const userPropLblText = 'Copy Message to Clipboard';
+					const userPropLblText = 'Properties Copied to Clipboard';
 					const userPropCopyLbl = createCopiedLabel(userPropCopyLblId, userPropLblText);
 
 					// Append elements to the container div
