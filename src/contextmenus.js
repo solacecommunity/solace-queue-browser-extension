@@ -15,8 +15,15 @@ chrome.runtime.onInstalled.addListener(function () {
 // Find queue messages on Context Menu option click
 chrome.contextMenus.onClicked.addListener(findMessagesOnClick);
 
+/**
+ * Handles the click event for the "findMsg" menu item.
+ * Retrieves the queue from the current page and processes the messages.
+ *
+ * @param {Object} info - The information about the context menu event.
+ * @param {Object} tab - The information about the current browser tab.
+ */
 function findMessagesOnClick(info, tab) {
     if (info.menuItemId === 'findMsg') {
-		findMessagesWithDynamicQueueNames();
+		getQueueFromPageAndProcessMessages();
     }
 }
