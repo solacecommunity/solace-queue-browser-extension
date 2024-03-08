@@ -1,18 +1,8 @@
-
-/*Function triggered from context menu*/
-function findMessagesWithDynamicQueueNames() {
-    // Function requests the queue name from the tab 
-    // Also BROWSES the message in the queue
-    // #I would prefer to do this without a call back#
-    getQueueFromPageAndProcessMessages(); 
-}
-
-
+/**
+ * Queries the active browser tab, sends a message to extract the queue name from the page,
+ * and then calls the findMessages function with the extracted queue name.
+ */
 function getQueueFromPageAndProcessMessages() {
-
-	/*Request sent to chrome tab to scrape the QUEUE name.
-	  Call back triggers the findMessages(dynamicQueueName). 
-	*/
 	chrome.tabs.query({active: true, currentWindow: true}, 
 			function(tabs) {
                 chrome.tabs.sendMessage(tabs[0].id, {action: "extractQueueName"}, function(response) {
@@ -22,6 +12,13 @@ function getQueueFromPageAndProcessMessages() {
 			});
 }
 
+/**
+ * Queries the Solace Queue Browser for messages in a specified queue.
+ * Sends the payload of each message to the active page.
+ * If an error occurs, it sends the error message to the active page.
+ *
+ * @param {string} dynamicQueueName - The name of the queue to search for messages.
+ */
 function findMessages(dynamicQueueName) {
 	console.log('findMessages executed - on QUEUE NAME: '+dynamicQueueName);
     
@@ -32,51 +29,34 @@ function findMessages(dynamicQueueName) {
     } catch (error) {
         sendErrorToPage(error.message);
     }
-
-    var loginDetails = {
-        url: null,
-        vpn: null,
-        username: null,
-        pw: null,
-    }
     
     chrome.storage.local.get(["loginDetails"]).then((result) => {
-
         // Get log details from local storage
         var storedLoginDetails = result.loginDetails;
-        if (storedLoginDetails.smfHost) {
-            loginDetails.url = storedLoginDetails.smfHost;
-        } else {
-            sendErrorToPage("URL parameter is missing from Options");
+        if (!storedLoginDetails.smfHost) {
+            sendErrorToPage("Options page is missing the URL parameter. Please set the URL in the Options page.");
             return;
         }
-        if (storedLoginDetails.msgVpn) {
-            loginDetails.vpn = storedLoginDetails.msgVpn;
-        } else {
-            sendErrorToPage("VPN parameter is missing from Options");
+        if (!storedLoginDetails.msgVpn) {
+            sendErrorToPage("Options page is missing the VPN parameter. Please set the VPN in the Options page.");
             return;
         }
-        if (storedLoginDetails.userName) {
-            loginDetails.username = storedLoginDetails.userName;
-        } else {
-            sendErrorToPage("Username parameter is missing from Options");
+        if (!storedLoginDetails.userName) {
+            sendErrorToPage("Options page is missing the Username parameter. Please set the Username in the Options page.");
             return;
         }
-        if (storedLoginDetails.password) {
-            loginDetails.pw = storedLoginDetails.password;
-        } else {
-            sendErrorToPage("Password parameter is missing from Options");
+        if (!storedLoginDetails.password) {
+            sendErrorToPage("Options page is missing the Password parameter. Please set the Password in the Options page.");
             return;
         }
-
 
         try {
             // Login to Solace
             var session = solace.SolclientFactory.createSession({
-                url: loginDetails.url,
-                vpnName: loginDetails.vpn,
-                userName: loginDetails.username,
-                password: loginDetails.pw
+                url: storedLoginDetails.smfHost,
+                vpnName: storedLoginDetails.msgVpn,
+                userName: storedLoginDetails.userName,
+                password: storedLoginDetails.password
             });
 
             session.connect(); // Connect session
@@ -97,18 +77,30 @@ function findMessages(dynamicQueueName) {
             qb.on(solace.QueueBrowserEventName.MESSAGE,
                 function messageCB(message) {
                     var appMsgId = message.getApplicationMessageId();
+                    var userPropsList = {};
+
+                    // Retrieves User Properties
+                    if (storedLoginDetails.showUserProps) {
+                        var userProps = message.getUserPropertyMap();
+                        if (userProps) {
+                            userProps.getKeys().forEach(x => {
+                                userPropsList[x] = userProps.getField(x).Tc; // getField returns a object with Rc and TC as keys. Tc key contains our property
+                            });
+                        }
+                    }
+
                     if (appMsgId === undefined) { appMsgId = 'Not specified'; }
                     var payload = message.getBinaryAttachment();
-                    sendPayloadToPage(message.rc.low, appMsgId, payload);        
+                    sendPayloadToPage(message.rc.low, appMsgId, userPropsList, payload);
                 }
             );
             qb.connect(); // Connect with QueueBrowser to receive QueueBrowserEvents.
 
 
-            // [LeoPhillips][20-12-23][v3][START]
-            // Refactored setTimeout as it hide errors when qb.disconnect() failed.
-            // Arrow function allows the try to catch any errors and send them to the context script
-            // through sendErrorToPage()
+            /**
+             * Disconnects from the session and the queue browser after a delay.
+             * If an error occurs during disconnection, it sends the error message to the active page.
+             */
             setTimeout(() => {
                 try {
                     qb.disconnect();
@@ -117,7 +109,6 @@ function findMessages(dynamicQueueName) {
                     sendErrorToPage(`VPN may not be turned on. Error: ${error.message}`);
                 }
             }, 40000); // 40 seconds
-            // [LeoPhillips][20-12-23][v3][END]
 
         } catch (error) {
             console.error(error.message);
@@ -127,15 +118,66 @@ function findMessages(dynamicQueueName) {
     });
 }
 
-function sendPayloadToPage(messageId, appMsgId, payload){
-    chrome.tabs.query({active: true,currentWindow: true}, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, {action: "setPayload", appMsgId: appMsgId, messageId: messageId, payload: payload});
 
+/**
+ * Sends a payload to the active page.
+ *
+ * @param {string} messageId - The ID of the message.
+ * @param {string} appMsgId - The application message ID.
+ * @param {object} userProps - The user properties of the message.
+ * @param {string} payload - The payload of the message.
+ */
+function sendPayloadToPage(messageId, appMsgId, userProps, payload) {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+            action: "setPayload",
+            appMsgId,
+            userProps,
+            messageId,
+            payload
+        });
     });
 }
 
+
+/**
+ * Sends an error message to the active page.
+ *
+ * @param {string} error - The error message to send.
+ */
 function sendErrorToPage(error) {
     chrome.tabs.query({active: true,currentWindow: true}, function (tabs) {
         chrome.tabs.sendMessage(tabs[0].id, {action: "setError", error: error});
     });
+}
+
+
+/**
+ * Checks if a variable is empty.
+ *
+ * @param {*} paramVar - The variable to check.
+ * @returns {boolean} - True if the variable is empty, false otherwise.
+ */
+function isEmpty(paramVar) {
+    var blEmpty = false;
+    if (typeof paramVar != "boolean") {
+        if (!paramVar) {
+            if (paramVar !== 0) {
+                blEmpty = true;
+            }
+        }
+        else if (Array.isArray(paramVar)) {
+            if (paramVar && paramVar.length === 0) {
+                blEmpty = true;
+            }
+        }
+        else if (typeof paramVar == 'object') {
+            if (paramVar && JSON.stringify(paramVar) == '{}') {
+                blEmpty = true;
+            } else if (paramVar && Object.keys(paramVar).length === 0 && !(paramVar instanceof Date)) {
+                blEmpty = true;
+            }
+        }
+    } 
+    return blEmpty;
 }

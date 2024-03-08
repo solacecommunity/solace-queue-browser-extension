@@ -1,37 +1,58 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
-<head lang="en">
+<head>
+  <meta charset="UTF-8">
   <title>Appronto Developer Helper options (use at your own risk!)</title>
-  <link rel="stylesheet" type="text/css" href="options.css" />
+  <link rel="stylesheet" type="text/css" href="options.css">
 </head>
 
 <body>
-    <div class="center-input">
-      <div>
-        <img class='solace-logo' src="../img/Solace-logo-green.png" />
-      </div>
-    <div >
-      <span>Username</span>
-      <input type="text" id="userName" class="save-connection-input" placeholder="solace-cloud-client" />
+  <div class="center-input">
+    <div>
+      <img class="solace-logo" src="../img/Solace-logo-green.png" alt="Solace Logo">
     </div>
     <div>
-      <span>Password</span>
-      <input type="password" id="password" class="save-connection-input" placeholder="**************" />
+      <label for="userName">Username</label>
+      <input type="text" id="userName" class="save-connection-input" placeholder="solace-cloud-client">
     </div>
     <div>
-      <span>Message VPN</span>
-      <input type="text" id="msgVpn"  class="save-connection-input" placeholder="example-message-vpn"/>
+      <label for="password">Password</label>
+      <input type="password" id="password" class="save-connection-input" placeholder="**************">
     </div>
     <div>
-      <span>Secured SMF Host</span>
-      <input type="text" id="smfHost" class="save-connection-input" placeholder="wss://example.messaging.solace.cloud:12345" />
+      <label for="msgVpn">Message VPN</label>
+      <input type="text" id="msgVpn" class="save-connection-input" placeholder="example-message-vpn">
     </div>
-    <!-- <button id="save" class="shrink-border">Save</button> -->
-    <button id="save" class="save-btn"></button>
-  </div>
-  <div id="status"></div>
+    <div>
+      <label for="smfHost">Secured SMF Host</label>
+      <input type="text" id="smfHost" class="save-connection-input" placeholder="wss://example.messaging.solace.cloud:12345">
+    </div>
 
+    <div>
+      <table style="width: 100%;">
+        <tr>
+          <td colspan="2"><br></td>
+        </tr>
+        <tr>
+          <td style="width: 600px;">
+            <label for="showUserProps">Display User Properties</label>
+          </td>
+          <td style="float: right;">
+            <div class="features-wrapper">
+              <input id="showUserProps" type="checkbox" class="features">
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2"><hr></td>
+        </tr>
+      </table>
+    </div>
+
+    <button id="save" class="save-btn" role="button"></button>
+  </div>
+  
   <script src="options.js"></script>
 </body>
 
