@@ -23,10 +23,10 @@ chrome.runtime.onMessage.addListener(
 			
 			// Check first if container has been created. If so, then plugin has already run and needs to 
 			// reload new data. This prevents duplicate messages from appearing in the UI
+			const applicationDivExisting = document.getElementById(`application-properties-container-${request.messageId}`);
 			const containerDivExisting = document.getElementById(`queue-extension-container-${request.messageId}`);
-			if (containerDivExisting) {
-				containerDivExisting.remove();
-			}
+			if (applicationDivExisting) { applicationDivExisting.remove(); };
+			if (containerDivExisting) { containerDivExisting.remove(); };
 
             // Currently, findMessages() returns all msgs on a queue. The UI can only display a max of
             // 100 msgs. If there are 300 msgs returned and only 100 displayed, document.getElementById will 
@@ -40,6 +40,15 @@ chrome.runtime.onMessage.addListener(
 				const expandedRow = dataRowParent.parentElement.children[1];
 				const expandedDiv = expandedRow.getElementsByTagName('compose')[0];
 				
+				// ############################################################################################################
+
+				/*
+					Create container for Application Properties
+				*/
+				const applicationPropertiesDivId = `application-properties-container-${request.messageId}`;
+				const applicationPropertiesDiv = createContainerDiv(applicationPropertiesDivId, expandedDiv);
+				expandedDiv.appendChild(applicationPropertiesDiv);
+
 				// Create Application Message ID label
 				const appMsgIdLblId = `app-msg-id-lbl-${request.messageId}`;
 				const appMsgIdLblValueId = `app-msg-id-lbl-value-${request.messageId}`;
@@ -49,12 +58,16 @@ chrome.runtime.onMessage.addListener(
 				const appMsgIdValueLbl = createLabel(appMsgIdLblValueId, request.appMsgId);
 				appMsgIdValueLbl.style.color = 'black';
 
-				expandedDiv.appendChild(appMsgIdLbl);
-				expandedDiv.appendChild(appMsgIdValueLbl);
+				applicationPropertiesDiv.appendChild(appMsgIdLbl);
+				applicationPropertiesDiv.appendChild(appMsgIdValueLbl);
 
-				createAndAppendHorizontalLine(expandedDiv);
+				createAndAppendHorizontalLine(applicationPropertiesDiv);
+
+				// ############################################################################################################
 				
-				// Create container div for the Queue Message and the User Properties.
+				/*
+					Create container for Queue Message and User Properties.
+				*/
 				const containerDivId = `queue-extension-container-${request.messageId}`;
 				const containerDiv = createContainerDiv(containerDivId, expandedDiv);
 				containerDiv.style.display = 'flex';
