@@ -18,6 +18,10 @@ input {
   border-radius: 10px;
 }
 
+input[type="text"] {
+  font-family: "Rubik", sans-serif;
+}
+
 input:hover {
   border: 1px solid #aaa;
   box-shadow: 0 0 15px 8px rgba(37, 36, 36, 0.06);
@@ -25,11 +29,12 @@ input:hover {
 
 .solace-logo {
   width: 50%;
+  margin: 15px;
 }
 
 .center-input {
-  width: 50%;
-  height: 80%;
+  width: 65%;
+  height: 100%;
   position: absolute;
   top: 0;
   bottom: 0;
@@ -38,10 +43,118 @@ input:hover {
   margin: auto;
 }
 
-/* Save Button Styles */
-.save-btn {
+.headers {
+  color: rgba(0, 0, 0, .8);
+  font-size: 20px;
+  font-weight: 500;
+  /* text-align: center; */
+}
+
+.sub-headers {
+  font-family: "Rubik", sans-serif;
+  font-weight: 400;
+  font-size: 0.875rem;
+  line-height: 1.43;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+/* Container Styling */
+.container {
+  display: flex;
+}
+
+.left-container {
+  flex: 1;
+}
+
+.right-container {
+  flex: 1;
+}
+
+.inner-left-container {
+  margin: 25px;
+}
+
+.inner-right-container {
+  margin: 25px;
+}
+
+.align-right {
+  float: right;
+}
+
+#connections {
+  padding: 20px;
+  height: 600px;
+  /* Adjust the height as needed */
+  overflow-y: scroll;
+}
+
+/* Create equal row that stack on top of each other */
+.row {
+  border-radius: 15px;
+  float: left;
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0px 5px 0px;
+  background-color: #f5f5f5;
+  transition: all ease 0.2s;
+
+  box-shadow: 0px 5px 10px 0px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.row:hover {
+  transform: translateY(-5px);
+  box-shadow: 0px 10px 20px 2px rgba(0, 0, 0, 0.25);
+}
+
+.row:active {
+  background: #e5e5e5;
+  -webkit-box-shadow: inset 0px 0px 5px #c1c1c1;
+  -moz-box-shadow: inset 0px 0px 5px #c1c1c1;
+  box-shadow: inset 0px 0px 5px #c1c1c1;
+  outline: none;
+}
+
+.selected {
+  background: #c1c1c1;
+}
+
+#activatedLabel {
+  width: 100px;
+  bottom: 0;
+  float: right;
+  text-align: center;
+  font-family: 'Heebo', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.025rem;
+  font-style: italic;
+  text-transform: uppercase;
+  color: #13d10f;
+  background-color: #FFFFFF;
+  border-radius: 1.25rem;
+  -webkit-border-radius: 1.25rem;
+  -moz-border-radius: 1.25rem;
+  padding: 0.35rem 0.75rem;
+  border-style: solid;
+  border-width: 0.125rem;
+  border-color: #13d10f;
+  -webkit-box-shadow: none;
+  -moz-box-shadow: none;
+  -box-shadow: none;
+}
+
+/* Button Styles */
+.button-container {
+  display: flex;
+  justify-content: space-between;
+}
+
+.button-wrapper {
   background-color: #13aa52;
-  border: 1px solid #13aa52;
+  border-width: 0;
   border-radius: 4px;
   box-shadow: rgba(0, 0, 0, .1) 0 2px 4px 0;
   box-sizing: border-box;
@@ -50,6 +163,7 @@ input:hover {
   font-family: "Akzidenz Grotesk BQ Medium", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 16px;
   font-weight: 600;
+  white-space: nowrap;
   outline: none;
   padding: 10px 25px;
   text-align: center;
@@ -58,31 +172,59 @@ input:hover {
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
-  width: 50%;
+  width: 100%;
   margin-top: 10px;
 }
 
-.save-btn:after {
-  content: 'Save';
-}
-
-.save-btn:hover {
-  box-shadow: rgba(0, 0, 0, .15) 0 3px 9px 0;
+.button-wrapper:hover {
   transform: translateY(-2px);
+  box-shadow: 0px 10px 20px 2px rgba(0, 0, 0, 0.25);
 }
 
-.save-btn:focus {
-  background-color: #00c1c8;
+
+.button-wrapper:active {
+  background: #13aa529d;
+  -webkit-box-shadow: inset 0px 0px 5px #c1c1c1;
+  -moz-box-shadow: inset 0px 0px 5px #c1c1c1;
+  box-shadow: inset 0px 0px 5px #c1c1c1;
+  outline: none;
 }
 
-.save-btn:focus:after {
-  transition: all .5s ease;
-  content: 'Saved!';
+.button-wrapper.options-btn.toggled-on {
+  background-color: #4CAF50;
+  color: white;
 }
 
-@media (min-width: 768px) {
-  .save-btn {
-    padding: 10px 30px;
+.options-btn {
+  height: 30px;
+  background-color: #9c9e9d;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.middle-btn {
+  margin-left: 5px;
+  margin-right: 5px;
+}
+
+.save-btn {
+  width: 90%;
+  background-color: #009dff;
+}
+
+.delete-btn {
+  float: right;
+  width: 90%;
+  background-color: #c01616;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
   }
 }
 
@@ -148,4 +290,13 @@ input:hover {
 
 .features-wrapper .features:checked:hover {
   background-color: #535db3;
+}
+
+.features-wrapper .features:checked.encrypted {
+  background-color: #9a9ec3;
+}
+
+.features-wrapper .features:hover.encrypted {
+  background-color: #dfe1e4;
+  box-shadow: 0 0 0 0;
 }
