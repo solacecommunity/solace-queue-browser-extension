@@ -281,24 +281,17 @@ async function save_option() {
       showUserProps: getChecked('showUserProps'),
       showMsgPayload: getChecked('showMsgPayload'),
       activated: getChecked('activated'),
-      encrypted: null,
+      encrypted: false,
       iv: null
     };
 
-    const options = await chrome.storage.sync.get();
-    connectionDetails.encrypted = options.encryptionEnabled;
-
-    // Encrypt the password if the encryption checkbox is checked.
-    // If the password is already encrypted, do not encrypt it again.
-    if (!connectionDetails.encrypted) {
-      // Encrypt the password and store the encrypted string and IV
-      await encryptString(connectionDetails.password).then((encryptedData) => {
-        console.log('encryptedData:', encryptedData);
-        connectionDetails.password = encryptedData.encryptedString;
-        connectionDetails.iv = encryptedData.iv;
-        connectionDetails.encrypted = true;
-      });
-    }
+    // Encrypt the password and store the encrypted string and IV
+    await encryptString(connectionDetails.password).then((encryptedData) => {
+      console.log('encryptedData:', encryptedData);
+      connectionDetails.password = encryptedData.encryptedString;
+      connectionDetails.iv = encryptedData.iv;
+      connectionDetails.encrypted = true;
+    });
 
 
     // Remove the activated label from activated connection
