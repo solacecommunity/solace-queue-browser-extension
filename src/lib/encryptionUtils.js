@@ -6,36 +6,23 @@ import { isEmpty } from './utils.js';
  * Encrypts a string using the Web Crypto API.
  * 
  * @param {string} string - The string to encrypt.
+ * @param {string} key - The key used for encryption.
  * @returns {object.Promise<string>} The encrypted string.
  * @returns {object.Promise<string>} The initialization vector used for encryption.
  */
-export async function encryptString(string) {
+export async function encryptString(string, key) {
+  // If the encryption key is not set in the session storage, prompt the user to enter it
+  if (!key) {
+    throw new Error('No Encryption Key. Encryption key is required to encrypt the connection.');
+  }
   let encryptedString = '';
   let iv = '';
-  let sessionObjects = await chrome.storage.session.get('encryptionKey');
 
-  // If the encryption key is not set in the session storage, prompt the user to enter it
-  if (isEmpty(sessionObjects)) {
-    const key = prompt('Please enter an encryption key:');
-    if (isEmpty(key)) {
-      throw new Error('Encryption Key Required. Unable to encrypt connection. Please enter a valid encryption key.');
-    }
-    await chrome.storage.session.set({ 'encryptionKey': key });
-    sessionObjects = { encryptionKey: key };
-  }
+  const encryptionKey = await generateSHA256Key(key);
+  const encryptedData = await encryptAESData(string, encryptionKey);
 
-  try {
-    const encryptionKey = await generateSHA256Key(sessionObjects.encryptionKey);
-    const encryptedData = await encryptAESData(string, encryptionKey);
-    
-    console.log('encryptedData.encrypted:', encryptedData.encrypted);
-
-    encryptedString = arrayBufferToBase64(encryptedData.encrypted);
-    iv = arrayBufferToBase64(encryptedData.iv);
-  } catch (error) {
-    console.error(`Error encrypting password: ${error}`);
-    throw new Error(`Error encrypting password: ${error}`);
-  }
+  encryptedString = arrayBufferToBase64(encryptedData.encrypted);
+  iv = arrayBufferToBase64(encryptedData.iv);
 
   return { encryptedString, iv };
 }
@@ -115,21 +102,14 @@ function customBase64Encode(input) {
  * @param {base64String} iv - The base64 initialization vector used for decryption.
  * @returns {Promise<string>} The decrypted string.
  */
-export async function decryptString(string, iv) {
-  let decryptedString = '';
-  let sessionObjects = await chrome.storage.session.get('encryptionKey');
-
+export async function decryptString(string, iv, key) {
   // If the encryption key is not set in the session storage, prompt the user to enter it
-  if (isEmpty(sessionObjects)) {
-    const key = prompt('Please enter an encryption key:');
-    if (isEmpty(key)) {
-      throw new Error('Encryption Key Required. An encrypted connection was found. Please enter the encryption key that was used to encrypt the connection.');
-    }
-    await chrome.storage.session.set({ 'encryptionKey': key });
-    sessionObjects = { encryptionKey: key };
+  if (!key) {
+    throw new Error('No Encryption Key. Encryption key is required to decrypt the connection.');
   }
+  let decryptedString = '';
 
-  const encryptionKey = await generateSHA256Key(sessionObjects.encryptionKey);
+  const encryptionKey = await generateSHA256Key(key);
   decryptedString = await performDecryption(string, encryptionKey, iv);
 
   return decryptedString;
@@ -143,16 +123,11 @@ export async function decryptString(string, iv) {
  * @returns {Promise<string>} The decrypted string.
  */
 async function performDecryption(string, encryptionKey, iv) {
-  try {
     const encryptedDataArrayBuffer = base64ToArrayBuffer(string);
     const ivArrayBuffer = base64ToArrayBuffer(iv);
 
     const decryptedData = await decryptAESData(encryptedDataArrayBuffer, encryptionKey, ivArrayBuffer);
     return decryptedData;
-  } catch (error) {
-    console.error(`Error decrypting password: ${error}`);
-    throw new Error(`Error decrypting password: ${error}`);
-  }
 }
 
 /**
@@ -175,8 +150,8 @@ async function decryptAESData(encryptedData, key, iv) {
     );
     return new TextDecoder().decode(decrypted);
   } catch (error) {
-    console.error(`Error decrypting data: ${error}`);
-    throw new Error(`Error decrypting data: ${error}`);
+    console.error(`${error}`);
+    throw new Error(`Decryption failed. Please set the correct encryption key.`);
   }
 }
 

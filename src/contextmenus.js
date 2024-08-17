@@ -1,4 +1,5 @@
-// Create Context Menu option on install
+
+// Create the context menu item on installation
 chrome.runtime.onInstalled.addListener(function () {
     chrome.contextMenus.create(
         {
@@ -10,20 +11,28 @@ chrome.runtime.onInstalled.addListener(function () {
                 console.error(chrome.runtime.lastError.message);
             }
         });
-
 });
-// Find queue messages on Context Menu option click
-chrome.contextMenus.onClicked.addListener(findMessagesOnClick);
 
-/**
- * Handles the click event for the "findMsg" menu item.
- * Retrieves the queue from the current page and processes the messages.
- *
- * @param {Object} info - The information about the context menu event.
- * @param {Object} tab - The information about the current browser tab.
- */
-function findMessagesOnClick(info, tab) {
+// When the context menu is clicked, find messages on the queue
+chrome.contextMenus.onClicked.addListener(async function (info, tab) {
     if (info.menuItemId === 'findMsg') {
-		getQueueFromPageAndProcessMessages();
+        
+        // Encryption key is required to decrypt messages. If it's not available, request it from the user.
+        const encryptionKey = await chrome.storage.session.get('encryptionKey');
+        console.log("Encryption key: ", encryptionKey);
+        if (isEmpty(encryptionKey) || isEmpty(encryptionKey.encryptionKey)) {
+            requestEncryptionKeyFromUser();
+        } else { // If the key is available, get the queue from the page and process messages
+            getQueueFromPageAndProcessMessages();
+        }
     }
-}
+});
+
+// Once the user has entered the encryption key, get the queue from the page and process messages
+chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
+    console.log("Message received: ", request);
+    if (request.action === "encryptionKeyReceived") {
+        await chrome.storage.session.set({ 'encryptionKey': request.encryptionKey });
+        getQueueFromPageAndProcessMessages();
+    }
+});

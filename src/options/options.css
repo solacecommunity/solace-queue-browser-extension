@@ -202,9 +202,17 @@ input:hover {
   font-weight: 700;
 }
 
-.middle-btn {
+.add-space-btn {
   margin-left: 5px;
   margin-right: 5px;
+}
+
+.confirm-color {
+  background-color: #13aa52;
+}
+
+.warning-color {
+  background-color: #c01616;
 }
 
 .save-btn {
@@ -215,7 +223,6 @@ input:hover {
 .delete-btn {
   float: right;
   width: 90%;
-  background-color: #c01616;
 }
 
 @keyframes fadeOut {
