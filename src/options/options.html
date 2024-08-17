@@ -31,9 +31,11 @@
       <div class="right-container">
         <!-- Connection header container -->
         <div class="container">
-          <div class="left-container inner-left-container"></div>
+          <div class="left-container"></div>
           <div class="right-container button-container">
-            <button id="importConnections" class="button-wrapper options-btn middle-btn">Import</button>
+            <button id="reset" class="button-wrapper options-btn add-space-btn warning-color">Reset</button>
+            <button id="setEncryptionKey" class="button-wrapper options-btn confirm-color">Set Encryption Key</button>
+            <button id="importConnections" class="button-wrapper options-btn add-space-btn">Import</button>
             <button id="exportConnections" class="button-wrapper options-btn">Export</button>
             <input type="file" id="fileInput" style="display: none;" accept=".json" />
             <!-- <h2 class="headers align-right">Connection</h2> -->
@@ -60,7 +62,7 @@
             </div>
             <div>
               <label for="smfHost">JavaScript API Endpoint</label>
-              <input type="text" id="smfHost" class="save-connection-input"
+              <input type="text" id="smfHost" class="save-connection-input" 
                 placeholder="wss://example.messaging.solace.cloud:12345">
             </div>
             <div style="display:none;">
@@ -120,9 +122,9 @@
             </div>
             <!-- Save & Delete button container -->
             <div class="container">
-              <div class="left-container"><button id="save" class="button-wrapper save-btn" role="button">Save</button>
+              <div class="left-container"><button id="save" class="button-wrapper save-btn confirm-color" role="button">Save</button>
               </div>
-              <div class="right-container"><button id="delete" class="button-wrapper delete-btn"
+              <div class="right-container"><button id="delete" class="button-wrapper delete-btn warning-color"
                   role="button">Delete</button></div>
             </div>
           </div>

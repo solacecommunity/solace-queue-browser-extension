@@ -1,13 +1,12 @@
-
 // Listen for messages from the background script
-// The background script will send a message to the content script to request the encryption key from the user
-// The background script will send a message to the content script to extract the queue name from the page
-// The background script will send a message to the content script to set the payload on the page
-// The background script will send a message to the content script to set an error message on the page
+// The background script will send a message to the content script to request the encryption key from the user (requestEncryptionKey)
+// The background script will send a message to the content script to extract the queue name from the page (getQueueName)
+// The background script will send a message to the content script to set the payload on the page (setPayload)
+// The background script will send a message to the content script to set an error message on the page (setError)
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 	switch (request.action) {
 		case "requestEncryptionKey":
-			requestEncryptionKey(sendResponse);
+			requestEncryptionKey();
 			break;
 		case "getQueueName":
 			getQueueName(sendResponse);
@@ -25,25 +24,43 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 /**
- * Prompts the user to enter an encryption key.
+ * Displays an input window to prompt the user to enter an encryption key.
  * 
- * @param {function} sendResponse - The sendResponse function to send the encryption key to the background script.
+ * This function does the following:
+ * 1. Displays an input window to prompt the user to enter an encryption key.
+ * 2. When the user clicks the submit button, the entered key is saved in session storage.
  */
-async function requestEncryptionKey(sendResponse) {
-	let encryptionKey = prompt("This connection is encrypted. Please enter the encryption key that was used to encrypt the connection:");
-	if (isEmpty(encryptionKey)) {
-		const error = "Encryption Key Required. This connection is encrypted. Please enter the encryption key that was used to encrypt the connection";
-		console.error(error);
-		sendResponse({
-			"error": error
-		});
+function requestEncryptionKey() {
+	console.log('requestEncryptionKey');
+	displayEncryptionKeyInputWindow('Enter Encryption Key', 'Enter the encryption key to decrypt the messages.');
+
+	const encryptionKeyInputWindow = document.getElementById('encryption-key-input-window');
+	const submitButton = document.getElementById('encryption-key-input-submit-button');
+	const inputBox = document.getElementById('encryption-key-input');
+
+	if (!submitButton || !inputBox) {
 		return;
 	}
-	sendResponse({
-		"encryptionKey": encryptionKey
-	});
-}
 
+	try {
+		// Handle the Encryption input window submit button click
+		submitButton.addEventListener('click', (event) => {
+			event.stopPropagation();
+			const inputValue = inputBox.value;
+			if (inputValue) {
+				document.body.removeChild(encryptionKeyInputWindow);
+
+				// Send message to background script to indicate that the encryption key has been received
+				chrome.runtime.sendMessage({ action: 'encryptionKeyReceived', encryptionKey: inputValue });
+			} else {
+				showModalNotification('Missing Key', 'No key has been entered. Please enter an encryption key');
+			}
+		});
+	} catch (error) {
+		console.error(error);
+		showModalNotification('Error', error.message);
+	}
+}
 
 /**
  * Extracts the queue name from the page and sends it to the background script.
@@ -64,26 +81,36 @@ function getQueueName(sendResponse) {
  * Sets the payload on the page.
  * 
  * @param {object} request - The request object containing the message ID, metadata properties, user properties, and queued message.
- * @param {string} request.messageId - The ID of the message.
- * @param {object} request.metadataPropList - The metadata properties of the message.
- * @param {object} request.userProps - The user properties of the message.
- * @param {string} request.queuedMsg - The queued message of the message.
+ * @param {string} request.message - A message from the queue.
  */
 async function setPayload(request) {
-	removeExistingElements(request.messageId);
-	/*
-		Currently, queryMessagesFromQueue() in finMessages.js file returns all msgs on a queue. 
-		The UI contains only 100 messages or `list-row-menu_Messages_Queued_${request.messageId =< 100 elements.}`.
-		E.g. if there are 300 msgs returned and only 100 displayed.
-		Therefore, the below check is necessary to avoid errors when trying to find elements that do not exist.
-		This is only an issue because the Solace Javascript API does not support Selectors. Once we can return only msgs
-		we are interested in, then this check can be removed.
-	*/
-	const dataRow = document.getElementById(`list-row-menu_Messages_Queued_${request.messageId}`);
-	if (dataRow) {
-		const expandedDiv = findElementToAppendPayloadContainer(dataRow);
-		createMetaDataContainer(expandedDiv, request.messageId, request.metadataPropList);
-		createPayloadContainer(expandedDiv, request.messageId, request.userProps, request.queuedMsg);
+	const message = request.message;
+
+	if (isEmpty(message)) {
+		console.error('Message is empty.');
+		showModalNotification('Error', 'Message is empty.');
+		return;
+	}
+
+	try {
+		removeExistingElements(message.messageId);
+		/*
+			Currently, queryMessagesFromQueue() in finMessages.js file returns all msgs on a queue. 
+			The UI contains only 100 messages or `list-row-menu_Messages_Queued_${request.messageId =< 100 elements.}`.
+			E.g. if there are 300 msgs returned and only 100 displayed.
+			Therefore, the below check is necessary to avoid errors when trying to find elements that do not exist.
+			This is only an issue because the Solace Javascript API does not support Selectors. Once we can return only msgs
+			we are interested in, then this check can be removed.
+		*/
+		const dataRow = document.getElementById(`list-row-menu_Messages_Queued_${message.messageId}`);
+		if (dataRow) {
+			const expandedDiv = findElementToAppendPayloadContainer(dataRow);
+			createMetaDataContainer(expandedDiv, message.messageId, message.metadataPropList);
+			createPayloadContainer(expandedDiv, message.messageId, message.userProps, message.queuedMsg);
+		}
+	} catch	(error) {
+		console.error(error);
+		showModalNotification('Error', error.message);
 	}
 }
 
@@ -213,6 +240,103 @@ function createPayloadContainer(expandedDiv, messageId, userProps, queuedMsg) {
 }
 
 
+/**
+ * Shows a password input modal with a specified title and message.
+ * The modal includes an input field for the user to enter a password.
+ * The password is stored in the Chrome local storage.
+ * 
+ * @param {string} title - The title to display in the modal notification.
+ * @param {string} message - The message to display in the modal notification.
+ */
+function displayEncryptionKeyInputWindow(title, message) {
+	// Create the modal backdrop
+	const modal = document.createElement('div');
+	modal.id = 'encryption-key-input-window';
+	modal.style.position = 'fixed';
+	modal.style.width = '100%';
+	modal.style.height = '100%';
+	modal.style.top = '0';
+	modal.style.left = '0';
+	modal.style.background = 'rgba(0, 0, 0, 0.7)';
+	modal.style.zIndex = '1001';
+	// Create the modal content
+	const content = document.createElement('div');
+	content.style.position = 'fixed';
+	content.style.top = '50%';
+	content.style.left = '50%';
+	content.style.transform = 'translate(-50%, -50%)';
+	content.style.background = 'white';
+	content.style.padding = '20px';
+	content.style.zIndex = '1001';
+	content.style.borderRadius = '10px';
+	content.style.fontSize = '16px';
+	content.style.lineHeight = '1.5';
+	// Create the heading
+	const heading = document.createElement('h1');
+	heading.innerHTML = title;
+	heading.style.marginBottom = '10px';
+	const messageElement = document.createElement('p');
+	messageElement.id = 'modal-message';
+	messageElement.innerHTML = message;
+	// Create the input field
+	const inputElement = document.createElement('input');
+	inputElement.id = 'encryption-key-input';
+	inputElement.type = 'password';
+	inputElement.style.display = 'block';
+	inputElement.style.margin = '10px auto';
+	inputElement.style.padding = '10px';
+	inputElement.style.width = '80%';
+	inputElement.style.border = '1px solid #ccc';
+	inputElement.style.borderRadius = '5px';
+	// Create the button container
+	const buttonContainer = document.createElement('div');
+	buttonContainer.style.display = 'flex';
+	buttonContainer.style.justifyContent = 'space-between';
+	buttonContainer.style.marginTop = '20px';
+	// Create the close button
+	const closeButton = document.createElement('button');
+	closeButton.textContent = 'Close';
+	closeButton.style.display = 'block';
+	closeButton.style.margin = '20px auto 0';
+	closeButton.style.padding = '10px 20px';
+	closeButton.style.border = 'none';
+	closeButton.style.backgroundColor = '#ccc';
+	closeButton.style.color = 'black';
+	closeButton.style.borderRadius = '5px';
+	closeButton.style.cursor = 'pointer';
+	closeButton.textContent = 'Close';
+
+	// Remove the modal when the close button is clicked
+	closeButton.addEventListener('click', (event) => {
+		document.body.removeChild(modal);
+	});
+	// Create the submit button
+	const submitButton = document.createElement('button');
+	submitButton.id = 'encryption-key-input-submit-button';
+	submitButton.textContent = 'Submit';
+	submitButton.style.display = 'block';
+	submitButton.style.margin = '20px auto 0';
+	submitButton.style.padding = '10px 20px';
+	submitButton.style.border = 'none';
+	submitButton.style.backgroundColor = '#13aa52';
+	submitButton.style.color = 'white';
+	submitButton.style.borderRadius = '5px';
+	submitButton.style.cursor = 'pointer';
+
+	// Append buttons to the button container
+	buttonContainer.appendChild(submitButton);
+	buttonContainer.appendChild(closeButton);
+
+	content.appendChild(heading);
+	content.appendChild(messageElement);
+	content.appendChild(inputElement);
+	content.appendChild(buttonContainer);
+
+	// Append the content to the modal
+	modal.appendChild(content);
+	// Append the modal to the body
+	document.body.appendChild(modal);
+}
 
 /**
  * Shows a modal notification with a specified title and message.

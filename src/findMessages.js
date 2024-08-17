@@ -1,3 +1,16 @@
+
+/**
+ * Displays a toast notification to the user requesting an encryption key.
+ */
+async function requestEncryptionKeyFromUser() {
+    await chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "requestEncryptionKey" });
+    });
+}
+
+
+
+
 /**
  * Queries the active browser tab, sends a message to extract the queue name from the page,
  * and then calls the queryMessagesFromQueue function with the extracted queue name.
@@ -32,6 +45,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         Object.entries(connections).forEach(([connectionId, connection]) => {
             if (connection.activated === true) {
                 activeConnection = connection;
+                return;
             }
         });
         if (!activeConnection) {
@@ -39,9 +53,17 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             return;
         }
 
+
+        // Encryption key is required to decrypt messages. If it's not available, request it from the user.
+        const encryptionKey = await chrome.storage.session.get('encryptionKey');
+        if (isEmpty(encryptionKey) || isEmpty(encryptionKey.encryptionKey)) {
+            requestEncryptionKeyFromUser();
+            return;
+        }
+
         // Decrypt password if it is encrypted
         if (activeConnection.encrypted) {
-            await decryptString(activeConnection.password, activeConnection.iv).then((decryptedData) => {
+            await decryptString(activeConnection.password, activeConnection.iv, encryptionKey.encryptionKey).then((decryptedData) => {
                 activeConnection.password = decryptedData;
             });
         }
@@ -72,49 +94,47 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             }
         });
 
-        qb.on(solace.QueueBrowserEventName.CONNECT_FAILED_ERROR,
-            function connectFailedErrorEventCb(error) {
-                console.error(`${error.message}: ${JSON.stringify(error.reason)}`);
-                sendErrorToPage(`${error.message}: ${JSON.stringify(error.reason)}`);
-            }
+        qb.on(solace.QueueBrowserEventName.CONNECT_FAILED_ERROR, (error) => {
+            console.error(`${error.message}: ${JSON.stringify(error.reason)}`);
+            sendErrorToPage(`${error.message}: ${JSON.stringify(error.reason)}`);
+        }
         );
 
-        // let messageCount = 0;	
-        qb.on(solace.QueueBrowserEventName.MESSAGE,
-            function messageCB(message) {
-                const appMsgId = message.getApplicationMessageId();
-                const destination = message.getDestination();
+        qb.on(solace.QueueBrowserEventName.MESSAGE, (message) => {
+            const appMsgId = message.getApplicationMessageId();
+            const destination = message.getDestination();
 
-                let queuedMsg = null;
-                let userPropsList = {};
-                let metadataPropList = {};
+            let queuedMsg = null;
+            let userPropsList = {};
+            let metadataPropList = {};
 
-                // Retrieves User Properties
-                if (activeConnection.showUserProps) {
-                    let userProps = message.getUserPropertyMap();
-                    if (userProps) {
-                        userProps.getKeys().forEach(x => {
-                            userPropsList[x] = userProps.getField(x).Tc; // getField returns a object with Rc and TC as keys. Tc key contains our property
-                        });
-                    }
+            // Retrieves User Properties
+            if (activeConnection.showUserProps) {
+                let userProps = message.getUserPropertyMap();
+                if (userProps) {
+                    userProps.getKeys().forEach(x => {
+                        userPropsList[x] = userProps.getField(x).Tc; // getField returns a object with Rc and TC as keys. Tc key contains our property
+                    });
                 }
-
-                metadataPropList['appMsgId'] = appMsgId || 'Not specified';
-                if (!isEmpty(destination)) {
-                    metadataPropList['destinationName'] = destination.getName();
-                    metadataPropList['destinationType'] = destination.Rc;
-                }
-
-                if (activeConnection.showMsgPayload) {
-                    queuedMsg = message.getBinaryAttachment();
-
-                }
-
-                sendPayloadToPage(message.rc.low, metadataPropList, userPropsList, queuedMsg);
-                // messageCount++;
-                // console.log(`Message count: ${messageCount}`);
             }
-        );
+
+            metadataPropList['appMsgId'] = appMsgId || 'Not specified';
+            if (!isEmpty(destination)) {
+                metadataPropList['destinationName'] = destination.getName();
+                metadataPropList['destinationType'] = destination.Rc;
+            }
+
+            if (activeConnection.showMsgPayload) {
+                queuedMsg = message.getBinaryAttachment();
+
+            }
+            sendPayloadToPage({
+                messageId: message.rc.low,
+                metadataPropList: metadataPropList,
+                userProps: userPropsList,
+                queuedMsg: queuedMsg
+            });
+        });
         qb.connect(); // Connect with QueueBrowser to receive QueueBrowserEvents.
 
         /**
@@ -129,30 +149,24 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                 console.error(error);
                 sendErrorToPage(`VPN may not be turned on. Error: ${JSON.stringify(error)}`);
             }
-        }, 40000); // 40 seconds
+        }, 40000); // 5 seconds
 
     } catch (error) {
         console.error(error);
-        sendErrorToPage(error);
+        sendErrorToPage(error.message);
     }
 }
 
 /**
- * Sends a queuedMsg to the active page.
+ * Sends a message to the active page.
  *
- * @param {string} messageId - The ID of the message.
- * @param {string} appMsgId - The application message ID.
- * @param {object} userProps - The User Properties of the message.
- * @param {string} queuedMsg - The Queued Message of the message.
+ * @param {string} message - All data related to the message.
  */
-function sendPayloadToPage(messageId, metadataPropList, userProps, queuedMsg) {
+function sendPayloadToPage(message) {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         chrome.tabs.sendMessage(tabs[0].id, {
             action: "setPayload",
-            metadataPropList,
-            userProps,
-            messageId,
-            queuedMsg
+            message: message
         });
     });
 }
@@ -213,36 +227,25 @@ function isEmpty(paramVar) {
  * @param {base64String} iv - The base64 initialization vector used for decryption.
  * @returns {Promise<string>} The decrypted string.
  */
-export async function decryptString(string, iv) {
-    let decryptedString = '';
-    let sessionObjects = await chrome.storage.session.get('encryptionKey');
-
-    console.log('sessionObjects:', sessionObjects);
-
+async function decryptString(string, iv, key) {
     // If the encryption key is not set in the session storage, prompt the user to enter it
-    if (isEmpty(sessionObjects)) {
-        const key = prompt('Please enter an encryption key:');
-        if (isEmpty(key)) {
-            throw new Error('Encryption Key Required. An encrypted connection was found. Please enter the encryption key that was used to encrypt the connection.');
-        }
-        await chrome.storage.session.set({ 'encryptionKey': key });
-        sessionObjects = { encryptionKey: key };
+    if (!key) {
+        throw new Error('No Encryption Key. Encryption key is required to decrypt the connection.');
     }
+    let decryptedString = '';
 
-    const encryptionKey = await generateSHA256Key(sessionObjects.encryptionKey);
-    console.log('here');
+    const encryptionKey = await generateSHA256Key(key);
     decryptedString = await performDecryption(string, encryptionKey, iv);
 
     return decryptedString;
 }
 
 /**
- * Decrypts encrypted data using the Web Crypto API.
+ * Decrypts an encrypted string using the Web Crypto API.
  * 
- * @param {base64<string>} encryptedData - The encrypted data to decrypt.
- * @param {Promise<CryptoKey>} key - The key used for decryption.
- * @param {base64<string>} iv - The initialization vector used for decryption.
- * @returns {string} The decrypted data as a string.
+ * @param {base64String} string - The encrypted base64 string to decrypt.
+ * @param {base64String} iv - The base64 initialization vector used for decryption.
+ * @returns {Promise<string>} The decrypted string.
  */
 async function performDecryption(string, encryptionKey, iv) {
     try {
@@ -252,8 +255,9 @@ async function performDecryption(string, encryptionKey, iv) {
         const decryptedData = await decryptAESData(encryptedDataArrayBuffer, encryptionKey, ivArrayBuffer);
         return decryptedData;
     } catch (error) {
-        console.error(`Error decrypting password: ${error}`);
-        throw new Error(`Error decrypting password: ${error}`);
+        await chrome.storage.session.set({ 'encryptionKey': '' }); // Clear the encryption key if decryption fails
+        console.error(error);
+        throw new Error(error);
     }
 }
 
@@ -277,8 +281,8 @@ async function decryptAESData(encryptedData, key, iv) {
         );
         return new TextDecoder().decode(decrypted);
     } catch (error) {
-        console.error(`Error decrypting data: ${error}`);
-        throw new Error(`Error decrypting data: ${error}`);
+        console.error(error);
+        throw new Error(`Decryption failed. Please set the correct encryption key.`);
     }
 }
 
