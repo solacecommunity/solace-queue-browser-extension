@@ -371,10 +371,13 @@ async function exportConnections() {
     for (const connectionId in connections) {
       const connection = connections[connectionId];
 
+      connection.selected = false;
       if (connection.encrypted) {
         await decryptString(connection.password, connection.iv, encryptionKey).then((decryptedData) => {
           connection.password = decryptedData;
         });
+        connection.iv = null;
+        connection.encrypted = false;
       }
     }
     const blob = new Blob([JSON.stringify(connections)], { type: 'application/json' });
