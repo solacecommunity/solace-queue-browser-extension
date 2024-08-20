@@ -154,7 +154,7 @@ export function showModalNotification(title, message, reload = false) {
             }, 250);
         }
     });
-
+    
 
     // Append the heading, message, and close button to the content
     content.appendChild(heading);
@@ -196,6 +196,8 @@ export function displayEncryptionKeyInputWindow(title, message = '', cancelOptio
     content.style.transform = 'translate(-50%, -50%)';
     content.style.background = 'white';
     content.style.padding = '20px';
+    content.style.paddingLeft = '20px';
+    content.style.paddingRight = '20px';
     content.style.zIndex = '1001';
     content.style.borderRadius = '10px';
     content.style.fontSize = '16px';
@@ -248,12 +250,18 @@ export function displayEncryptionKeyInputWindow(title, message = '', cancelOptio
 
     // Create the password requirements element
     const requirementsContainer = document.createElement('div');
+    requirementsContainer.style.textAlign = 'center'; // Center align the contents
+    requirementsContainer.style.marginTop = '20px'; // Add some margin at the top
+
     const requirementsHeading = document.createElement('div');
     requirementsHeading.textContent = 'Password Requirements:';
+    requirementsHeading.style.fontWeight = 'bold'; // Make the heading bold
+    requirementsHeading.style.marginBottom = '10px'; // Add some margin below the heading
+
     const requirementsElement = document.createElement('ul');
-    // requirementsElement.style.color = 'red';
-    requirementsElement.style.paddingLeft = '20px';
-    requirementsElement.style.marginTop = '0';
+    requirementsElement.style.listStyleType = 'none'; // Remove default list styling
+    requirementsElement.style.paddingLeft = '0'; // Remove default padding
+    requirementsElement.style.marginTop = '0'; // Remove default margin
 
     const requirement1 = document.createElement('li');
     requirement1.textContent = 'At least 8 characters';
@@ -289,7 +297,7 @@ export function displayEncryptionKeyInputWindow(title, message = '', cancelOptio
     submitButton.style.color = 'white';
     submitButton.style.borderRadius = '5px';
     submitButton.style.cursor = 'pointer';
-
+    
     // Append buttons to the button container
     buttonContainer.appendChild(submitButton);
 
@@ -394,6 +402,14 @@ export function showResetConfirmationWindow() {
     closeButton.addEventListener('click', (event) => {
         document.body.removeChild(modal);
     });
+    
+    // Trigger close button click when Enter key is pressed
+    closeButton.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            closeButton.click();
+        }
+    });
+
     // Create the submit button
     const submitButton = document.createElement('button');
     submitButton.id = 'reset-confirmation-submit-button';

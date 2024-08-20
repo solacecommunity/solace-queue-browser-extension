@@ -49,7 +49,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             }
         });
         if (!activeConnection) {
-            sendErrorToPage("No active connection found. Please activate a connection in the Options page.");
+            sendErrorToPage('No active connection found', 'Please activate a connection in the Options page.');
             return;
         }
 
@@ -72,7 +72,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         const requiredParams = ['smfHost', 'msgVpn', 'userName', 'password'];
         for (const param of requiredParams) {
             if (!activeConnection[param]) {
-                sendErrorToPage(`Options page is missing the ${param} parameter. Please set the ${param} in the Options page.`);
+                sendErrorToPage('Missing Parameter', `Options page is missing the ${param} parameter. Please set the ${param} in the Options page.`);
                 return;
             }
         }
@@ -82,78 +82,135 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             url: activeConnection.smfHost,
             vpnName: activeConnection.msgVpn,
             userName: activeConnection.userName,
-            password: activeConnection.password
+            password: activeConnection.password,
+            connectRetries: 0,
+        });
+
+        session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, function (sessionEvent) {
+            switch (sessionEvent.errorSubcode) {
+                case solace.ErrorSubcode.MESSAGE_VPN_NOT_ALLOWED:
+                    console.error(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    sendErrorToPage(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    break;
+                case solace.ErrorSubcode.LOGIN_FAILURE:
+                    console.log(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    sendErrorToPage(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    break;
+                case solace.ErrorSubcode.CLIENT_ACL_DENIED:
+                    console.log(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    sendErrorToPage(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    break;
+                default:
+                    console.log(sessionEvent.infoStr, `Check correct parameter values and connectivity. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    sendErrorToPage(sessionEvent.infoStr, `Check correct parameter values and connectivity. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    break;
+            }
+        });
+        session.on(solace.SessionEventCode.DISCONNECTED, function (sessionEvent) {
+            console.log('=== Session Disconnected ===');
+            if (session !== null) {
+                session.dispose();
+                session = null;
+            }
+        });
+
+        
+        session.on(solace.SessionEventCode.UP_NOTICE, function (sessionEvent) {
+            console.log('=== Session successfully connected ===');
+
+            const qb = session.createQueueBrowser({
+                queueDescriptor: {
+                    name: dynamicQueueName,
+                    type: "QUEUE"
+                }
+            });
+
+            qb.on(solace.QueueBrowserEventName.UP, () => {
+                console.log('Connected to Queue Browser. Waiting for messages...');
+            });
+
+            qb.on(solace.QueueBrowserEventName.DOWN, () => {
+                console.log('=== Queue Browser Disconnected ===');
+            });
+
+            qb.on(solace.QueueBrowserEventName.CONNECT_FAILED_ERROR, (error) => {
+                console.error(`${error.message}: ${JSON.stringify(error.reason)}`);
+                sendErrorToPage('Queue Browser Connection Error', `${error.message}: ${JSON.stringify(error.reason)}`);
+            });
+
+            qb.on(solace.QueueBrowserEventName.MESSAGE, (message) => {
+                const appMsgId = message.getApplicationMessageId();
+                const destination = message.getDestination();
+
+                let queuedMsg = null;
+                let userPropsList = {};
+                let metadataPropList = {};
+
+                // Retrieves User Properties
+                if (activeConnection.showUserProps) {
+                    let userProps = message.getUserPropertyMap();
+                    if (userProps) {
+                        userProps.getKeys().forEach(x => {
+                            userPropsList[x] = userProps.getField(x).Tc; // getField returns a object with Rc and TC as keys. Tc key contains our property
+                        });
+                    }
+                }
+
+                metadataPropList['appMsgId'] = appMsgId || 'Not specified';
+                if (!isEmpty(destination)) {
+                    metadataPropList['destinationName'] = destination.getName();
+                    metadataPropList['destinationType'] = destination.Rc;
+                }
+
+                if (activeConnection.showMsgPayload) {
+                    queuedMsg = message.getBinaryAttachment();
+
+                }
+                sendPayloadToPage({
+                    messageId: message.rc.low,
+                    metadataPropList: metadataPropList,
+                    userProps: userPropsList,
+                    queuedMsg: queuedMsg
+                });
+            });
+
+            qb.connect(); // Connect with QueueBrowser to receive QueueBrowserEvents.
+
+
+            // Disconnect Queue Browser after 60 seconds
+            setTimeout(() => {
+                console.log('Disconnecting from Queue Browser...');
+                if (qb !== null) {
+                    try {
+                        qb.disconnect();
+                    } catch (error) {
+                        console.log(error.toString());
+                    }
+                } else {
+                    console.log('Not connected to Queue Browser.');
+                }
+            }, 60000); // 60 seconds
         });
 
         session.connect(); // Connect session
 
-        const qb = session.createQueueBrowser({
-            queueDescriptor: {
-                name: dynamicQueueName,
-                type: "QUEUE"
-            }
-        });
-
-        qb.on(solace.QueueBrowserEventName.CONNECT_FAILED_ERROR, (error) => {
-            console.error(`${error.message}: ${JSON.stringify(error.reason)}`);
-            sendErrorToPage(`${error.message}: ${JSON.stringify(error.reason)}`);
-        }
-        );
-
-        qb.on(solace.QueueBrowserEventName.MESSAGE, (message) => {
-            const appMsgId = message.getApplicationMessageId();
-            const destination = message.getDestination();
-
-            let queuedMsg = null;
-            let userPropsList = {};
-            let metadataPropList = {};
-
-            // Retrieves User Properties
-            if (activeConnection.showUserProps) {
-                let userProps = message.getUserPropertyMap();
-                if (userProps) {
-                    userProps.getKeys().forEach(x => {
-                        userPropsList[x] = userProps.getField(x).Tc; // getField returns a object with Rc and TC as keys. Tc key contains our property
-                    });
-                }
-            }
-
-            metadataPropList['appMsgId'] = appMsgId || 'Not specified';
-            if (!isEmpty(destination)) {
-                metadataPropList['destinationName'] = destination.getName();
-                metadataPropList['destinationType'] = destination.Rc;
-            }
-
-            if (activeConnection.showMsgPayload) {
-                queuedMsg = message.getBinaryAttachment();
-
-            }
-            sendPayloadToPage({
-                messageId: message.rc.low,
-                metadataPropList: metadataPropList,
-                userProps: userPropsList,
-                queuedMsg: queuedMsg
-            });
-        });
-        qb.connect(); // Connect with QueueBrowser to receive QueueBrowserEvents.
-
-        /**
-         * Disconnects from the session and the queue browser after a delay.
-         * If an error occurs during disconnection, it sends the error message to the active page.
-         */
+        // Disconnect session after 65 seconds
         setTimeout(() => {
-            try {
-                qb.disconnect();
-                session.disconnect();
-            } catch (error) {
-                console.error(error);
-                sendErrorToPage(`VPN may not be turned on. Error: ${JSON.stringify(error)}`);
+            console.log('Disconnecting from Solace PubSub+ Event Broker...');
+            if (session !== null) {
+                try {
+                    session.disconnect();
+                } catch (error) {
+                    console.log(error.toString());
+                }
+            } else {
+                console.log('Not connected to Solace PubSub+ Event Broker.');
             }
-        }, 40000); // 5 seconds
+        }, 65000); // 65 seconds
 
     } catch (error) {
         console.error(error);
-        sendErrorToPage(error.message);
+        sendErrorToPage(error.name, error.message);
     }
 }
 
@@ -177,9 +234,9 @@ function sendPayloadToPage(message) {
  *
  * @param {string} error - The error message to send.
  */
-function sendErrorToPage(error) {
+function sendErrorToPage(name, message) {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: "setError", error: error });
+        chrome.tabs.sendMessage(tabs[0].id, { action: "setError", error: { 'name': name, 'message': message } });
     });
 }
 

@@ -15,7 +15,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 			setPayload(request)
 			break;
 		case "setError":
-			showModalNotification("Error", request.error);
+			showModalNotification(request.error.name, request.error.message);
 			break;
 		default:
 			console.error("Unknown action:", request.action);
@@ -406,11 +406,6 @@ function showModalNotification(title, message) {
 
 	// Append the modal to the body
 	document.body.appendChild(modal);
-
-	// Remove the modal when it's clicked
-	modal.addEventListener('click', () => {
-		document.body.removeChild(modal);
-	});
 }
 
 
