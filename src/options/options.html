@@ -6,6 +6,9 @@
   <title>Emixa Solace Extension Options</title>
   <link rel="shortcut icon" href="https://www.emixa.com/hubfs/favicon-32x32.png">
   <link rel="stylesheet" type="text/css" href="options.css">
+  <!-- Load Solace Web Messaging API for JavaScript -->
+  <script src="../lib/solclient.js"></script>
+  <script type="module" src="options.js"></script>
 </head>
 
 <body>
@@ -33,9 +36,10 @@
         <div class="container">
           <div class="left-container"></div>
           <div class="right-container button-container">
-            <button id="reset" class="button-wrapper options-btn add-space-btn warning-color">Reset</button>
-            <button id="setEncryptionKey" class="button-wrapper options-btn confirm-color">Set Encryption Key</button>
-            <button id="importConnections" class="button-wrapper options-btn add-space-btn">Import</button>
+            <button id="reset" class="button-wrapper options-btn warning-color">Reset</button>
+            <button id="changeKey" class="button-wrapper add-space-btn options-btn confirm-color">Change Key</button>
+            <button id="testConnection" class="button-wrapper options-btn save-btn">Test Connection</button>
+            <button id="importConnections" class="button-wrapper add-space-btn options-btn">Import</button>
             <button id="exportConnections" class="button-wrapper options-btn">Export</button>
             <input type="file" id="fileInput" style="display: none;" accept=".json" />
             <!-- <h2 class="headers align-right">Connection</h2> -->
@@ -61,7 +65,7 @@
               <input type="text" id="msgVpn" class="save-connection-input" placeholder="example-message-vpn">
             </div>
             <div>
-              <label for="smfHost">JavaScript API Endpoint</label>
+              <label for="smfHost">JavaScript API Endpoint (URL)</label>
               <input type="text" id="smfHost" class="save-connection-input" 
                 placeholder="wss://example.messaging.solace.cloud:12345">
             </div>
@@ -132,8 +136,6 @@
       </div>
     </div>
   </div>
-
-  <script type="module" src="options.js"></script>
 </body>
 
 </html>
