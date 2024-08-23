@@ -148,7 +148,6 @@ async function saveOption() {
       return;
     }
 
-    console.log('encryptionKey', encryptionKey);
     // Encrypt the password and store the encrypted string and IV
     await encryptString(currentConnection.password, encryptionKey).then((encryptedData) => {
       currentConnection.password = encryptedData.encryptedString;
@@ -316,17 +315,17 @@ function testConnection() {
         utils.showToastNotification(`The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
       case solace.ErrorSubcode.LOGIN_FAILURE:
-        console.log(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+        console.error(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
         // utils.showModalNotification(sessionEvent.infoStr, `The username or password is incorrect.`);
         utils.showToastNotification(`The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
       case solace.ErrorSubcode.CLIENT_ACL_DENIED:
-        console.log(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+        console.error(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
         // utils.showModalNotification(sessionEvent.infoStr, `The username or password is incorrect.`);
         utils.showToastNotification(`Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
       default:
-        console.log(sessionEvent.infoStr, `Check correct parameter values and connectivity. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+        console.error(sessionEvent.infoStr, `Check correct parameter values and connectivity. | Solace Error Code: ${sessionEvent.errorSubcode}`);
         // utils.showModalNotification(sessionEvent.infoStr, `Check correct parameter values and connectivity!`);
         utils.showToastNotification(`Check correct parameter values and connectivity | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
@@ -353,7 +352,7 @@ function testConnection() {
       try {
         session.disconnect();
       } catch (error) {
-        console.log(error.toString());
+        console.error(error.toString());
       }
     } else {
       console.log('Not connected to Solace PubSub+ Event Broker.');
@@ -423,7 +422,6 @@ function promptUserForEncryptionKey() {
   submitButton.addEventListener('click', async (event) => {
     event.stopPropagation();
     const inputValue = inputBox.value;
-    console.log('inputValue', inputValue);
     if (!isValidEncryptionKey(inputValue)) {
       utils.showModalNotification('Invalid Key', 'The encryption key must be at least 8 characters long, at least 1 capital letter, contain at least 1 number, and at least 1 symbol.');
       return;
@@ -863,7 +861,6 @@ function isValidSmfHostProtocol(smfHost) {
  */
 async function getEncryptionKey() {
   const encryptionKey = await chrome.storage.session.get('encryptionKey');
-  console.log('encryptionKey.encryptionKey', encryptionKey.encryptionKey);
   return encryptionKey.encryptionKey;
 }
 

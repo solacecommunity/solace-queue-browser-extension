@@ -19,7 +19,6 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
         
         // Encryption key is required to decrypt messages. If it's not available, request it from the user.
         const encryptionKey = await chrome.storage.session.get('encryptionKey');
-        console.log("Encryption key: ", encryptionKey);
         if (isEmpty(encryptionKey) || isEmpty(encryptionKey.encryptionKey)) {
             requestEncryptionKeyFromUser();
         } else { // If the key is available, get the queue from the page and process messages
@@ -30,7 +29,6 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
 
 // Once the user has entered the encryption key, get the queue from the page and process messages
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
-    console.log("Message received: ", request);
     if (request.action === "encryptionKeyReceived") {
         await chrome.storage.session.set({ 'encryptionKey': request.encryptionKey });
         getQueueFromPageAndProcessMessages();

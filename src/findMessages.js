@@ -114,15 +114,15 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                     sendErrorToPage(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`);
                     break;
                 case solace.ErrorSubcode.LOGIN_FAILURE:
-                    console.log(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    console.error(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
                     sendErrorToPage(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
                     break;
                 case solace.ErrorSubcode.CLIENT_ACL_DENIED:
-                    console.log(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    console.error(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
                     sendErrorToPage(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
                     break;
                 default:
-                    console.log(sessionEvent.infoStr, `Check correct parameter values and connectivity. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    console.error(sessionEvent.infoStr, `Check correct parameter values and connectivity. | Solace Error Code: ${sessionEvent.errorSubcode}`);
                     sendErrorToPage(sessionEvent.infoStr, `Check correct parameter values and connectivity. | Solace Error Code: ${sessionEvent.errorSubcode}`);
                     break;
             }
@@ -205,7 +205,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                     try {
                         qb.disconnect();
                     } catch (error) {
-                        console.log(error.toString());
+                        console.error(error.toString());
                     }
                 } else {
                     console.log('Not connected to Queue Browser.');
@@ -222,7 +222,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                 try {
                     session.disconnect();
                 } catch (error) {
-                    console.log(error.toString());
+                    console.error(error.toString());
                 }
             } else {
                 console.log('Not connected to Solace PubSub+ Event Broker.');

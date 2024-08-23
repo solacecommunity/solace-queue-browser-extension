@@ -31,7 +31,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
  * 2. When the user clicks the submit button, the entered key is saved in session storage.
  */
 function requestEncryptionKey() {
-	console.log('requestEncryptionKey');
 	displayEncryptionKeyInputWindow('Enter Encryption Key', 'Enter the encryption key to decrypt the messages.');
 
 	const encryptionKeyInputWindow = document.getElementById('encryption-key-input-window');
@@ -463,8 +462,6 @@ function copyToClipboard(textElementId, labelElementId) {
 		// Add the fade-out class to the label
 		newCopiedDiv.classList.add('fade-out');
 
-	} else {
-		console.log('Initialization');
 	}
 }
 
