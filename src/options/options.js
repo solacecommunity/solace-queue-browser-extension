@@ -133,7 +133,7 @@ async function saveOption() {
 
     // Validate JavaScript API Endpoint URL
     if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
-      utils.showModalNotification('Invalid protocol - please use one of ws://, wss://, http://, https://');
+      utils.showModalNotification('Invalid protocol','Please use one of ws://, wss://, http://, https://');
       return;
     }
     
