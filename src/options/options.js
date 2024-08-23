@@ -47,109 +47,8 @@ document.getElementById('fileInput').addEventListener('change', async (event) =>
 // Tests the connection when the 'Test Connection' button is clicked
 document.getElementById('testConnection').addEventListener('click', testConnection);
 
-// Test the connection to the Solace PubSub+ Event Broker
-function testConnection() {
-
-  // Initialize the Solace factory
-  const factoryProps = new solace.SolclientFactoryProperties();
-  factoryProps.profile = solace.SolclientFactoryProfiles.version10;
-  solace.SolclientFactory.init(factoryProps);
-
-  // Get the active connection
-  const currentConnection = {
-    id: getValue('connectionId'),
-    smfHost: getValue('smfHost'),
-    msgVpn: getValue('msgVpn'),
-    userName: getValue('userName'),
-    password: getValue('password'),
-  };
-
-  // Validate URL protocol
-  if (currentConnection.smfHost.lastIndexOf('ws://', 0) !== 0 && currentConnection.smfHost.lastIndexOf('wss://', 0) !== 0 &&
-    currentConnection.smfHost.lastIndexOf('http://', 0) !== 0 && currentConnection.smfHost.lastIndexOf('https://', 0) !== 0) {
-    utils.showModalNotification('Invalid protocol - please use one of ws://, wss://, http://, https://');
-    return;
-  }
-
-  let session = null;
-  try {
-    // Login to Solace
-    session = solace.SolclientFactory.createSession({
-      url: currentConnection.smfHost,
-      vpnName: currentConnection.msgVpn,
-      userName: currentConnection.userName,
-      password: currentConnection.password,
-      connectRetries: 0,
-    });
-  } catch (error) {
-    console.error(error);
-    // utils.showModalNotification(error.name, error.message);
-    utils.showToastNotification(error.message, 'error', 7000);
-  }
-  // define session event listeners
-  session.on(solace.SessionEventCode.UP_NOTICE, function (sessionEvent) {
-    console.log('=== Successfully connected and ready to view messages. ===');
-    // utils.showModalNotification('Success', 'Successfully connected and ready to view messages.', true);
-    utils.showToastNotification('Successfully connected and ready to view messages.', 'success', 7000);
-  });
-  session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, function (sessionEvent) {
-    switch (sessionEvent.errorSubcode) {
-      case solace.ErrorSubcode.MESSAGE_VPN_NOT_ALLOWED:
-        console.error(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-        // utils.showModalNotification(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist`);
-        utils.showToastNotification(`The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
-        break;
-      case solace.ErrorSubcode.LOGIN_FAILURE:
-        console.log(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-        // utils.showModalNotification(sessionEvent.infoStr, `The username or password is incorrect.`);
-        utils.showToastNotification(`The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
-        break;
-      case solace.ErrorSubcode.CLIENT_ACL_DENIED:
-        console.log(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-        // utils.showModalNotification(sessionEvent.infoStr, `The username or password is incorrect.`);
-        utils.showToastNotification(`Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
-        break;
-      default:
-        console.log(sessionEvent.infoStr, `Check correct parameter values and connectivity. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-        // utils.showModalNotification(sessionEvent.infoStr, `Check correct parameter values and connectivity!`);
-        utils.showToastNotification(`Check correct parameter values and connectivity | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
-        break;
-    }
-  });
-  session.on(solace.SessionEventCode.DISCONNECTED, function (sessionEvent) {
-    console.log('Disconnected.');
-    if (session !== null) {
-      session.dispose();
-      session = null;
-    }
-  });
-
-  try {
-    session.connect();
-  } catch (error) {
-    console.error(error);
-    utils.showModalNotification(error.name, error.message);
-  }
-
-  setTimeout(() => {
-    console.log('Disconnecting from Solace PubSub+ Event Broker...');
-    if (session !== null) {
-      try {
-        session.disconnect();
-      } catch (error) {
-        console.log(error.toString());
-      }
-    } else {
-      console.log('Not connected to Solace PubSub+ Event Broker.');
-    }
-  }, 2000); // 2 seconds
-
-}
-
-
 // Display the encryption key input window when the 'Set Encryption Key' button is clicked
 document.getElementById('changeKey').addEventListener('click', changeKey);
-
 
 // Display the reset confirmation window when the 'Reset' button is clicked
 document.getElementById('reset').addEventListener('click', resetExtension);
@@ -204,6 +103,7 @@ async function populateUI() {
  * - The actual keys and structure of the `options` object will vary based on the application's specific settings and requirements.
  * - Error handling should be implemented to catch and manage exceptions, especially those related to local storage limits or permissions.
  */
+
 async function saveOption() {
   try {
 
@@ -221,19 +121,25 @@ async function saveOption() {
       connectionName: getValue('connectionName'),
       smfHost: getValue('smfHost'),
       msgVpn: getValue('msgVpn'),
+      msgVpnUrl: getValue('msgVpnUrl'),
       userName: getValue('userName'),
       password: getValue('password'),
       showUserProps: getChecked('showUserProps'),
       showMsgPayload: getChecked('showMsgPayload'),
-      activated: getChecked('activated'),
       selected: true,
       encrypted: false,
       iv: null
     };
 
-    if (currentConnection.smfHost.lastIndexOf('ws://', 0) !== 0 && currentConnection.smfHost.lastIndexOf('wss://', 0) !== 0 &&
-      currentConnection.smfHost.lastIndexOf('http://', 0) !== 0 && currentConnection.smfHost.lastIndexOf('https://', 0) !== 0) {
+    // Validate JavaScript API Endpoint URL
+    if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
       utils.showModalNotification('Invalid protocol - please use one of ws://, wss://, http://, https://');
+      return;
+    }
+    
+    // Validate Message VPN URL
+    if (!isValidMsgVpnUrl(currentConnection.msgVpnUrl)) {
+      utils.showModalNotification('Invalid URL','Please use a URL matching https://<<your_domain>>.messaging.solace.cloud:943');
       return;
     }
 
@@ -259,14 +165,6 @@ async function saveOption() {
       });
     }
 
-    // Deactivate all other connections if the current connection is activated
-    if (currentConnection.activated === true) {
-      Object.entries(connections).forEach(([connectionId, connection]) => {
-        if (connection.id !== currentConnection.id) {
-          connection.activated = false;
-        }
-      });
-    }
     connections[currentConnection.id] = currentConnection;
     chrome.storage.local.set(connections);
 
@@ -360,6 +258,111 @@ async function deleteOption() {
 }
 
 
+// Test the connection to the Solace PubSub+ Event Broker
+function testConnection() {
+
+  // Initialize the Solace factory
+  const factoryProps = new solace.SolclientFactoryProperties();
+  factoryProps.profile = solace.SolclientFactoryProfiles.version10;
+  solace.SolclientFactory.init(factoryProps);
+
+  // Get the active connection
+  const currentConnection = {
+    id: getValue('connectionId'),
+    smfHost: getValue('smfHost'),
+    msgVpn: getValue('msgVpn'),
+    userName: getValue('userName'),
+    password: getValue('password'),
+  };
+
+  // Validate the mandatory fields
+  if (!validateMandatoryConnectionFieldValues()) {
+    utils.showModalNotification('Missing mandatory fields', 'Please fill in all required fields.');
+    return;
+  }
+
+  // Validate URL protocol
+  if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
+    utils.showModalNotification('Invalid protocol', 'Please use one of ws://, wss://, http://, https://');
+    return;
+  }
+
+  let session = null;
+  try {
+    // Login to Solace
+    session = solace.SolclientFactory.createSession({
+      url: currentConnection.smfHost,
+      vpnName: currentConnection.msgVpn,
+      userName: currentConnection.userName,
+      password: currentConnection.password,
+      connectRetries: 0,
+    });
+  } catch (error) {
+    console.error(error);
+    // utils.showModalNotification(error.name, error.message);
+    utils.showToastNotification(error.message, 'error', 7000);
+  }
+  // define session event listeners
+  session.on(solace.SessionEventCode.UP_NOTICE, function (sessionEvent) {
+    console.log('=== Successfully connected and ready to view messages. ===');
+    // utils.showModalNotification('Success', 'Successfully connected and ready to view messages.', true);
+    utils.showToastNotification('Successfully connected and ready to view messages.', 'success', 7000);
+  });
+  session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, function (sessionEvent) {
+    switch (sessionEvent.errorSubcode) {
+      case solace.ErrorSubcode.MESSAGE_VPN_NOT_ALLOWED:
+        console.error(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+        // utils.showModalNotification(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist`);
+        utils.showToastNotification(`The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
+        break;
+      case solace.ErrorSubcode.LOGIN_FAILURE:
+        console.log(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+        // utils.showModalNotification(sessionEvent.infoStr, `The username or password is incorrect.`);
+        utils.showToastNotification(`The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
+        break;
+      case solace.ErrorSubcode.CLIENT_ACL_DENIED:
+        console.log(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+        // utils.showModalNotification(sessionEvent.infoStr, `The username or password is incorrect.`);
+        utils.showToastNotification(`Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
+        break;
+      default:
+        console.log(sessionEvent.infoStr, `Check correct parameter values and connectivity. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+        // utils.showModalNotification(sessionEvent.infoStr, `Check correct parameter values and connectivity!`);
+        utils.showToastNotification(`Check correct parameter values and connectivity | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
+        break;
+    }
+  });
+  session.on(solace.SessionEventCode.DISCONNECTED, function (sessionEvent) {
+    console.log('Disconnected.');
+    if (session !== null) {
+      session.dispose();
+      session = null;
+    }
+  });
+
+  try {
+    session.connect();
+  } catch (error) {
+    console.error(error);
+    utils.showModalNotification(error.name, error.message);
+  }
+
+  setTimeout(() => {
+    console.log('Disconnecting from Solace PubSub+ Event Broker...');
+    if (session !== null) {
+      try {
+        session.disconnect();
+      } catch (error) {
+        console.log(error.toString());
+      }
+    } else {
+      console.log('Not connected to Solace PubSub+ Event Broker.');
+    }
+  }, 2000); // 2 seconds
+
+}
+
+
 /**
  * This function does the following:
  * 1. Displays an input window to prompt the user to enter an encryption key.
@@ -445,21 +448,6 @@ function promptUserForEncryptionKey() {
 }
 
 /**
- * Validates if the encryption key meets the required criteria.
- * 
- * @param {string} key - The encryption key to validate.
- * @returns {boolean} - Returns true if the key is valid, false otherwise.
- */
-function isValidEncryptionKey(key) {
-  const minLength = 8;
-  const hasNumber = /\d/;
-  const hasSymbol = /[!@#$%^&*(),.?":{}|<>]/;
-  const hasCapitalLetter = /[A-Z]/;
-
-  return key.length >= minLength && hasNumber.test(key) && hasSymbol.test(key) && hasCapitalLetter.test(key);
-}
-
-/**
  * Exports the connections to a JSON file.
  * 
  * This function does the following:
@@ -537,11 +525,6 @@ async function importFile(file) {
       if (!connections || typeof connections !== 'object') {
         throw new Error('Invalid connections object.');
       }
-
-      // Deactivate all connections
-      Object.values(connections).forEach((connection) => {
-        connection.activated = false;
-      });
 
       // Encrypt connection passwords
       for (const connectionId in connections) {
@@ -632,11 +615,11 @@ async function getConnection() {
     setValue('connectionName', connection.connectionName);
     setValue('smfHost', connection.smfHost);
     setValue('msgVpn', connection.msgVpn);
+    setValue('msgVpnUrl', connection.msgVpnUrl);
     setValue('userName', connection.userName);
     setValue('password', connection.password);
     setChecked('showUserProps', connection.showUserProps);
     setChecked('showMsgPayload', connection.showMsgPayload);
-    setChecked('activated', connection.activated);
 
     document.getElementById('save').textContent = 'Save';
     document.getElementById('save').style.backgroundColor = '#009dff';
@@ -664,7 +647,6 @@ function clearConnectionFields() {
     setValue('password', '');
     setChecked('showUserProps', false);
     setChecked('showMsgPayload', false);
-    setChecked('activated', false);
 
 
     validateMandatoryConnectionFieldValues();
@@ -698,16 +680,6 @@ function initConnectionsContainer(connections) {
         </div>
     `;
 
-    // Add an 'Activated' label to the connection if it is activated
-    if (connection.activated) {
-      let activatedDiv = `
-        <div id="activatedDiv" class="right-container">
-          <span id="activatedLabel">Activated</span>
-        </div>
-      `;
-      connectionHTML += activatedDiv;
-    }
-
     connectionHTML += `</div>`;
 
     // Append the connection HTML to the connections element
@@ -723,7 +695,7 @@ function initConnectionsContainer(connections) {
  */
 async function initSelectedConnection(connections) {
 
-  // Set activated connection if found
+  // Set selected connection if found
   let selectedConnection;
   Object.values(connections).forEach((connection) => {
     if (connection.selected === true) {
@@ -758,11 +730,11 @@ async function initSelectedConnection(connections) {
   setValue('connectionName', selectedConnection.connectionName);
   setValue('smfHost', selectedConnection.smfHost);
   setValue('msgVpn', selectedConnection.msgVpn);
+  setValue('msgVpnUrl', selectedConnection.msgVpnUrl);
   setValue('userName', selectedConnection.userName);
   setValue('password', selectedConnection.password);
   setChecked('showUserProps', selectedConnection.showUserProps);
   setChecked('showMsgPayload', selectedConnection.showMsgPayload);
-  setChecked('activated', selectedConnection.activated);
 
   // Validate the connection field values
   validateMandatoryConnectionFieldValues();
@@ -791,6 +763,7 @@ function validateMandatoryConnectionFieldValues() {
     connectionName: getValue('connectionName'),
     smfHost: getValue('smfHost'),
     msgVpn: getValue('msgVpn'),
+    msgVpnUrl: getValue('msgVpnUrl'),
     userName: getValue('userName'),
     password: getValue('password')
   };
@@ -844,6 +817,43 @@ async function reencryptConnections(newEncryptionKey) {
   }
   await chrome.storage.local.set(connections);
   utils.showToastNotification('Connections re-encrypted successfully!', 'success', 7000);
+}
+
+/**
+ * Validates the Message VPN URL.
+ * 
+ * @param {string} msgVpnUrl - The Message VPN URL to validate.
+ * @returns {boolean} - Returns true if the URL is valid, false otherwise.
+ */
+function isValidMsgVpnUrl(msgVpnUrl) {
+  const regex = /^https:\/\/.*\.messaging\.solace\.cloud:943$/;
+  return regex.test(msgVpnUrl);
+}
+
+/**
+ * Validates if the encryption key meets the required criteria.
+ * 
+ * @param {string} key - The encryption key to validate.
+ * @returns {boolean} - Returns true if the key is valid, false otherwise.
+ */
+function isValidEncryptionKey(key) {
+  const minLength = 8;
+  const hasNumber = /\d/;
+  const hasSymbol = /[!@#$%^&*(),.?":{}|<>]/;
+  const hasCapitalLetter = /[A-Z]/;
+
+  return key.length >= minLength && hasNumber.test(key) && hasSymbol.test(key) && hasCapitalLetter.test(key);
+}
+
+/**
+ * Validates the Solace Message Router Host protocol.
+ * 
+ * @param {string} smfHost - The Solace Message Router Host to validate.
+ * @returns {boolean} - Returns true if the protocol is valid, false otherwise.
+ */
+function isValidSmfHostProtocol(smfHost) {
+  const regex = /^(ws|wss|http|https):\/\/.*/;
+  return regex.test(smfHost);
 }
 
 /**

@@ -69,6 +69,7 @@ function getQueueName(sendResponse) {
 	const dataRow = document.querySelector('.title.title-content.detail-title-width.ellipsis-data');
 	if (!dataRow) {
 		console.error('Queue name element not found.');
+		showModalNotification('Error', 'Queue name element not found.');
 		return '';
 	}
 	const queueName = dataRow.textContent.split('|').pop().trim();

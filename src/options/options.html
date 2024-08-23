@@ -49,7 +49,7 @@
         <div class="inner-right-container">
           <div id="connectionForm">
             <div>
-              <label for="connectionName">Connection Name:</label>
+              <label for="connectionName">Connection Name</label>
               <input type="text" id="connectionName" class="save-connection-input" placeholder="Production"><br><br>
             </div>
             <div>
@@ -65,9 +65,13 @@
               <input type="text" id="msgVpn" class="save-connection-input" placeholder="example-message-vpn">
             </div>
             <div>
+              <label for="msgVpnUrl">Message VPN URL</label>
+              <input type="text" id="msgVpnUrl" class="save-connection-input" placeholder="https://<<your_domain>>.messaging.solace.cloud:943"><br>
+            </div>
+            <div>
               <label for="smfHost">JavaScript API Endpoint (URL)</label>
               <input type="text" id="smfHost" class="save-connection-input" 
-                placeholder="wss://example.messaging.solace.cloud:12345">
+                placeholder="wss://<<your_domain>>.messaging.solace.cloud:12345">
             </div>
             <div style="display:none;">
               <input type="text" id="connectionId">
@@ -99,21 +103,6 @@
                   <td style="float: right;">
                     <div class="features-wrapper">
                       <input id="showUserProps" type="checkbox" class="features">
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td colspan="2">
-                    <hr>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="width: 600px;">
-                    <label class="sub-headers" for="activated">Activated</label>
-                  </td>
-                  <td style="float: right;">
-                    <div class="features-wrapper">
-                      <input id="activated" type="checkbox" class="features">
                     </div>
                   </td>
                 </tr>
