@@ -16,7 +16,7 @@ chrome.runtime.onInstalled.addListener(function () {
 // When the context menu is clicked, find messages on the queue
 chrome.contextMenus.onClicked.addListener(async function (info, tab) {
     if (info.menuItemId === 'findMsg') {
-        
+
         // Encryption key is required to decrypt messages. If it's not available, request it from the user.
         const encryptionKey = await chrome.storage.session.get('encryptionKey');
         if (isEmpty(encryptionKey) || isEmpty(encryptionKey.encryptionKey)) {

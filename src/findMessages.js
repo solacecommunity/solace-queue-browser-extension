@@ -64,7 +64,11 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         let activeConnection = null;
         const connections = await chrome.storage.local.get();
         Object.entries(connections).forEach(([connectionId, connection]) => {
-            if (connection.msgVpnUrl === domain) {
+            // Normalize URLs by removing trailing slashes
+            const normalizedDomain = domain.replace(/\/$/, '');
+            const normalizedConnectionUrl = connection.msgVpnUrl.replace(/\/$/, '');
+
+            if (normalizedConnectionUrl === normalizedDomain) {
                 activeConnection = connection;
                 return;
             }
@@ -135,7 +139,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             }
         });
 
-        
+
         session.on(solace.SessionEventCode.UP_NOTICE, function (sessionEvent) {
             console.log('=== Session successfully connected ===');
 
@@ -443,4 +447,4 @@ async function generateSHA256Key(strKey) {
 function isValidMsgVpnUrl(msgVpnUrl) {
     const regex = /^https:\/\/.*\.messaging\.solace\.cloud:943\/.*$/;
     return regex.test(msgVpnUrl);
-  }
+}

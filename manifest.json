@@ -1,7 +1,7 @@
 {
   "name": "Emixa Solace message view Extension",
   "description": "Extension to browse solace message queues and inspect the payload.",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "manifest_version": 3,
   "permissions": [
     "storage",
@@ -33,5 +33,9 @@
   ],
   "icons": {
     "16": "src/img/emixa-logo.png"
+  },
+  "action": {
+    "default_icon": "src/img/emixa-logo.png",
+    "default_title": "Open Options"
   }
 }

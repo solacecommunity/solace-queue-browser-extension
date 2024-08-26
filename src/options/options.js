@@ -133,13 +133,13 @@ async function saveOption() {
 
     // Validate JavaScript API Endpoint URL
     if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
-      utils.showModalNotification('Invalid protocol','Please use one of ws://, wss://, http://, https://');
+      utils.showModalNotification('Invalid protocol','For the JavaScript API Enpoint field, please use one of ws://, wss://, http://, https://');
       return;
     }
     
     // Validate Message VPN URL
     if (!isValidMsgVpnUrl(currentConnection.msgVpnUrl)) {
-      utils.showModalNotification('Invalid URL','Please use a URL matching https://<<your_domain>>.messaging.solace.cloud:943');
+      utils.showModalNotification('Invalid URL','For the Message VPN URL filed, please use a URL matching https://{{your_domain}}.messaging.solace.cloud:943');
       return;
     }
 
@@ -282,7 +282,7 @@ function testConnection() {
 
   // Validate URL protocol
   if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
-    utils.showModalNotification('Invalid protocol', 'Please use one of ws://, wss://, http://, https://');
+    utils.showModalNotification('Invalid protocol', 'For the Message VPN URL filed, please use one of ws://, wss://, http://, https://');
     return;
   }
 
@@ -824,7 +824,7 @@ async function reencryptConnections(newEncryptionKey) {
  * @returns {boolean} - Returns true if the URL is valid, false otherwise.
  */
 function isValidMsgVpnUrl(msgVpnUrl) {
-  const regex = /^https:\/\/.*\.messaging\.solace\.cloud:943$/;
+  const regex = /^https:\/\/.*\.messaging\.solace\.cloud:943\/?$/;
   return regex.test(msgVpnUrl);
 }
 
