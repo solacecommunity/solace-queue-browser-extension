@@ -26,11 +26,3 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
         }
     }
 });
-
-// Once the user has entered the encryption key, get the queue from the page and process messages
-chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
-    if (request.action === "encryptionKeyReceived") {
-        await chrome.storage.session.set({ 'encryptionKey': request.encryptionKey });
-        getQueueFromPageAndProcessMessages();
-    }
-});

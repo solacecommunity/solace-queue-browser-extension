@@ -17,12 +17,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     // Search box event listener
     document.getElementById('searchBox').addEventListener('input', searchConnections);
+    // URL generator event listener
+    document.getElementById('hostName').addEventListener('input', generateConnectionUrls);
   } catch (error) {
     console.error(error);
     utils.showModalNotification('Error', error.message);
   }
 
 });
+
+function generateConnectionUrls() {
+  const hostName = document.getElementById('hostName').value;
+  const msgVpnUrl = `https://${hostName}.messaging.solace.cloud:943`;
+  setValue('msgVpnUrl', msgVpnUrl);
+
+  const smfHost = `wss://${hostName}.messaging.solace.cloud:443`;
+  setValue('smfHost', smfHost);
+}
 
 // Add event listeners to the 'Save', 'New Connection' and 'Delete buttons
 document.getElementById('delete').addEventListener('click', deleteOption);
@@ -46,8 +57,8 @@ document.getElementById('fileInput').addEventListener('change', async (event) =>
   importFile(file);
 });
 
-// Tests the connection when the 'Test Connection' button is clicked
-document.getElementById('testConnection').addEventListener('click', testConnection);
+// // Tests the connection when the 'Test Connection' button is clicked
+// document.getElementById('testConnection').addEventListener('click', testConnection);
 
 // Display the encryption key input window when the 'Set Encryption Key' button is clicked
 document.getElementById('changeKey').addEventListener('click', changeKey);
@@ -128,7 +139,6 @@ async function populateUI() {
 
 async function saveOption() {
   try {
-
     // Set DOM connection ID
     setValue('connectionId', getValue('connectionId') || crypto.randomUUID());
 
@@ -141,6 +151,7 @@ async function saveOption() {
     const currentConnection = {
       id: getValue('connectionId'),
       connectionName: getValue('connectionName'),
+      hostName: getValue('hostName'),
       smfHost: getValue('smfHost'),
       msgVpn: getValue('msgVpn'),
       msgVpnUrl: getValue('msgVpnUrl'),
@@ -169,6 +180,9 @@ async function saveOption() {
     if (utils.isEmpty(encryptionKey)) {
       return;
     }
+
+    // Before saving the connection, test the connection to ensure it is valid
+    testConnection();
 
     // Encrypt the password and store the encrypted string and IV
     await encryptString(currentConnection.password, encryptionKey).then((encryptedData) => {
@@ -633,6 +647,7 @@ async function getConnection() {
     // Populates the form fields with the retrieved connection details
     setValue('connectionId', connection.id);
     setValue('connectionName', connection.connectionName);
+    setValue('hostName', connection.hostName);
     setValue('smfHost', connection.smfHost);
     setValue('msgVpn', connection.msgVpn);
     setValue('msgVpnUrl', connection.msgVpnUrl);
@@ -661,10 +676,12 @@ function clearConnectionFields() {
     // Clear the values of the input fields
     setValue('connectionId', '');
     setValue('connectionName', '');
-    setValue('smfHost', '');
-    setValue('msgVpn', '');
     setValue('userName', '');
     setValue('password', '');
+    setValue('msgVpn', '');
+    setValue('hostName', '');
+    setValue('msgVpnUrl', 'https://{{host_name}}.messaging.solace.cloud:943');
+    setValue('smfHost', 'wss://{{host_name}}.messaging.solace.cloud:443');
     setChecked('showUserProps', false);
     setChecked('showMsgPayload', false);
 
@@ -748,6 +765,7 @@ async function initSelectedConnection(connections) {
   // Populate the input fields with the values of the activeated connection
   setValue('connectionId', selectedConnection.id);
   setValue('connectionName', selectedConnection.connectionName);
+  setValue('hostName', selectedConnection.hostName);
   setValue('smfHost', selectedConnection.smfHost);
   setValue('msgVpn', selectedConnection.msgVpn);
   setValue('msgVpnUrl', selectedConnection.msgVpnUrl);
@@ -781,6 +799,7 @@ function validateMandatoryConnectionFieldValues() {
   const connectionFieldValues = {
     id: getValue('connectionId'),
     connectionName: getValue('connectionName'),
+    hostName: getValue('hostName'),
     smfHost: getValue('smfHost'),
     msgVpn: getValue('msgVpn'),
     msgVpnUrl: getValue('msgVpnUrl'),

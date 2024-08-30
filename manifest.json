@@ -1,18 +1,18 @@
 {
   "name": "Emixa Solace message view Extension",
   "description": "Extension to browse solace message queues and inspect the payload.",
-  "version": "2.1.1",
+  "version": "2.2.1",
   "manifest_version": 3,
   "permissions": [
     "storage",
     "activeTab",
     "contextMenus",
     "tabs",
-    "scripting"
+    "scripting",
+    "webNavigation"
   ],
   "host_permissions": [
-    "https://*.messaging.solace.cloud:943/*",
-    "*://*/*"
+    "https://*.messaging.solace.cloud:943/*"
   ],
   "background": {
     "service_worker": "worker_wrapper.js"
@@ -24,7 +24,7 @@
   "content_scripts": [
     {
       "matches": [
-        "<all_urls>"
+        "https://*.messaging.solace.cloud:943/*"
       ],
       "js": [
         "src/inject/inject.js"

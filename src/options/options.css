@@ -27,6 +27,12 @@ input:hover {
   box-shadow: 0 0 15px 8px rgba(37, 36, 36, 0.06);
 }
 
+.readonly-input {
+  background-color: #e0e0e0; /* Light grey background */
+  color: #6c757d; /* Dark grey text */
+  cursor: not-allowed; /* Change cursor to indicate non-editable */
+}
+
 .solace-logo {
   width: 50%;
   margin: 15px;

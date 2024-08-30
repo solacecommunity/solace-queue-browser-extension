@@ -1,3 +1,4 @@
+
 // Listen for messages from the background script
 // The background script will send a message to the content script to request the encryption key from the user (requestEncryptionKey)
 // The background script will send a message to the content script to extract the queue name from the page (getQueueName)
@@ -5,6 +6,11 @@
 // The background script will send a message to the content script to set an error message on the page (setError)
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 	switch (request.action) {
+		case "createFindMsgButton":
+			this.setTimeout(() => {
+				createFindMsgButton();
+			}, 2000);
+			break;
 		case "requestEncryptionKey":
 			requestEncryptionKey();
 			break;
@@ -22,6 +28,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 			showModalNotification("Error", `Unknown action: ${request.action}`);
 	}
 });
+
+/**
+ * Creates the Find Messages button on the page.
+ * 
+ * This function does the following:
+ * 1. Checks if the Find Messages button already exists on the page.
+ * 2. If not, creates the Find Messages button and adds an event listener to it.
+ * 3. When the Find Messages button is clicked, sends a message to the background script to trigger the Find Messages logic.
+ */
+function createFindMsgButton() {
+	if (document.getElementById('findMsgs')) return;
+	const displayMsgBtn = document.createElement('li');
+	displayMsgBtn.className = 'au-target nav-item action-menu list-action';
+	displayMsgBtn.innerHTML = `
+		<button id="findMsgs" class="au-target nav-link create-action" tabindex="0">
+			<i class="material-icons">add</i>
+			<span class="label-sm">Find Messages</span>
+		</button>
+	`;
+	const navBar = document.querySelector('.au-target.table-action-panel.nav.flex-nowrap');
+	const lastChild = navBar.lastElementChild;
+	navBar.insertBefore(displayMsgBtn, lastChild);
+
+	const createActionButton = displayMsgBtn.querySelector('#findMsgs');
+	createActionButton.addEventListener('click', () => {
+		chrome.runtime.sendMessage({ action: "triggerFindMsg" });
+	});
+}
 
 /**
  * Displays an input window to prompt the user to enter an encryption key.
@@ -108,7 +142,7 @@ async function setPayload(request) {
 			createMetaDataContainer(expandedDiv, message.messageId, message.metadataPropList);
 			createPayloadContainer(expandedDiv, message.messageId, message.userProps, message.queuedMsg);
 		}
-	} catch	(error) {
+	} catch (error) {
 		console.error(error);
 		showModalNotification('Error', error.message);
 	}

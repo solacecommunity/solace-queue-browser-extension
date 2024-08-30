@@ -8,9 +8,6 @@ async function requestEncryptionKeyFromUser() {
     });
 }
 
-
-
-
 /**
  * Queries the active browser tab, sends a message to extract the queue name from the page,
  * and then calls the queryMessagesFromQueue function with the extracted queue name.

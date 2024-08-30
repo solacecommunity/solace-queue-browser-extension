@@ -41,7 +41,7 @@
           <div class="right-container button-container">
             <button id="reset" class="button-wrapper options-btn warning-color">Reset</button>
             <button id="changeKey" class="button-wrapper add-space-btn options-btn confirm-color">Change Key</button>
-            <button id="testConnection" class="button-wrapper options-btn save-btn">Test Connection</button>
+            <!-- <button id="testConnection" class="button-wrapper options-btn save-btn">Test Connection</button> -->
             <button id="importConnections" class="button-wrapper add-space-btn options-btn">Import</button>
             <button id="exportConnections" class="button-wrapper options-btn">Export</button>
             <input type="file" id="fileInput" style="display: none;" accept=".json" />
@@ -68,14 +68,19 @@
               <input type="text" id="msgVpn" class="save-connection-input" placeholder="example-message-vpn">
             </div>
             <div>
+              <label for="hostName">Host name</label>
+              <input type="text" id="hostName" class="save-connection-input"
+                placeholder="mr-connection-vj2c3yit21"><br>
+            </div>
+            <div>
               <label for="msgVpnUrl">Message VPN URL</label>
-              <input type="text" id="msgVpnUrl" class="save-connection-input"
-                placeholder="https://{{your_domain}}.messaging.solace.cloud:943"><br>
+              <input type="text" id="msgVpnUrl" class="save-connection-input readonly-input"
+                placeholder="https://{{host_name}}.messaging.solace.cloud:943" readonly><br>
             </div>
             <div>
               <label for="smfHost">JavaScript API Endpoint (URL)</label>
-              <input type="text" id="smfHost" class="save-connection-input"
-                placeholder="wss://{{your_domain}}.messaging.solace.cloud:12345">
+              <input type="text" id="smfHost" class="save-connection-input readonly-input"
+                placeholder="wss://{{host_name}}.messaging.solace.cloud:443" readonly>
             </div>
             <div style="display:none;">
               <input type="text" id="connectionId">
