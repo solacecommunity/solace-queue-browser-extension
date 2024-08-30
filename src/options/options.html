@@ -24,8 +24,11 @@
           <div class="left-container">
             <h2 class="headers">Connection Instances</h2>
           </div>
-          <div class="right-container"><button id="newConnection" class="button-wrapper" role="button">New
-              Connection</button></div>
+          <div class="right-container"><button id="newConnection" class="button-wrapper" role="button">New Connection</button></div>
+        </div>
+        <!-- Search box -->
+        <div class="search-container">
+          <input type="text" id="searchBox" placeholder="Search connections...">
         </div>
         <!-- Connection Instance container -->
         <div id="connections" class="inner-left-container">
@@ -66,11 +69,12 @@
             </div>
             <div>
               <label for="msgVpnUrl">Message VPN URL</label>
-              <input type="text" id="msgVpnUrl" class="save-connection-input" placeholder="https://{{your_domain}}.messaging.solace.cloud:943"><br>
+              <input type="text" id="msgVpnUrl" class="save-connection-input"
+                placeholder="https://{{your_domain}}.messaging.solace.cloud:943"><br>
             </div>
             <div>
               <label for="smfHost">JavaScript API Endpoint (URL)</label>
-              <input type="text" id="smfHost" class="save-connection-input" 
+              <input type="text" id="smfHost" class="save-connection-input"
                 placeholder="wss://{{your_domain}}.messaging.solace.cloud:12345">
             </div>
             <div style="display:none;">
@@ -115,7 +119,8 @@
             </div>
             <!-- Save & Delete button container -->
             <div class="container">
-              <div class="left-container"><button id="save" class="button-wrapper save-btn confirm-color" role="button">Save</button>
+              <div class="left-container"><button id="save" class="button-wrapper save-btn confirm-color"
+                  role="button">Save</button>
               </div>
               <div class="right-container"><button id="delete" class="button-wrapper delete-btn warning-color"
                   role="button">Delete</button></div>

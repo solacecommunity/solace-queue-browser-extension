@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       populateUI();
     }
+    // Search box event listener
+    document.getElementById('searchBox').addEventListener('input', searchConnections);
   } catch (error) {
     console.error(error);
     utils.showModalNotification('Error', error.message);
@@ -57,6 +59,26 @@ document.getElementById('reset').addEventListener('click', resetExtension);
 // ########################################################################################
 
 // DOM Functions
+
+/**
+ * Filters the connections based on the search input and updates the UI.
+ */
+async function searchConnections() {
+  const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+  const connections = await chrome.storage.local.get();
+
+  // Filter connections based on the search term
+  const filteredConnections = Object.values(connections).filter(connection => {
+    return connection.connectionName.toLowerCase().includes(searchTerm) ||
+           connection.msgVpn.toLowerCase().includes(searchTerm) ||
+           connection.userName.toLowerCase().includes(searchTerm) ||
+           connection.smfHost.toLowerCase().includes(searchTerm);
+  });
+
+  // Clear the connections container and re-populate with filtered connections
+  document.getElementById('connections').innerHTML = '';
+  initConnectionsContainer(filteredConnections);
+}
 
 /**
  * Displays the saved connections from local storage and populates the input fields with the values of the first connection.
