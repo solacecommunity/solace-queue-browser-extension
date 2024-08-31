@@ -1,6 +1,23 @@
-import { isEmpty } from './utils.js';
 
 // Encryption functions
+/**
+ * Retrieves the encryption key from session storage.
+ * 
+ * @returns {string} The encryption key stored in session storage.
+ */
+export async function getEncryptionKey() {
+  const encryptionKey = await chrome.storage.session.get('encryptionKey');
+  return encryptionKey.encryptionKey;
+}
+
+/**
+ * Sets the encryption key in session storage.
+ * 
+ * @param {string} encryptionKey - The encryption key to store in session storage.
+ */
+export async function setEncryptionKey(encryptionKey) {
+  chrome.storage.session.set({ 'encryptionKey': encryptionKey });
+}
 
 /**
  * Encrypts a string using the Web Crypto API.
@@ -27,6 +44,29 @@ export async function encryptString(string, key) {
   return { encryptedString, iv };
 }
 
+/**
+ * Decrypts an encrypted string using the Web Crypto API.
+ * 
+ * @param {base64String} string - The encrypted base64 string to decrypt.
+ * @param {base64String} iv - The base64 initialization vector used for decryption.
+ * @returns {Promise<string>} The decrypted string.
+ */
+export async function decryptString(string, iv, key) {
+  // If the encryption key is not set in the session storage, prompt the user to enter it
+  if (!key) {
+    throw new Error('No Encryption Key. Encryption key is required to decrypt the connection.');
+  }
+  let decryptedString = '';
+
+  const encryptionKey = await generateSHA256Key(key);
+  decryptedString = await performDecryption(string, encryptionKey, iv);
+
+  return decryptedString;
+}
+
+// ############################################################################################################
+
+// Helper functions
 
 /**
  * Encrypts a password using the Web Crypto API.
@@ -93,27 +133,6 @@ function customBase64Encode(input) {
   return output;
 }
 
-
-
-/**
- * Decrypts an encrypted string using the Web Crypto API.
- * 
- * @param {base64String} string - The encrypted base64 string to decrypt.
- * @param {base64String} iv - The base64 initialization vector used for decryption.
- * @returns {Promise<string>} The decrypted string.
- */
-export async function decryptString(string, iv, key) {
-  // If the encryption key is not set in the session storage, prompt the user to enter it
-  if (!key) {
-    throw new Error('No Encryption Key. Encryption key is required to decrypt the connection.');
-  }
-  let decryptedString = '';
-
-  const encryptionKey = await generateSHA256Key(key);
-  decryptedString = await performDecryption(string, encryptionKey, iv);
-
-  return decryptedString;
-}
 
 /**
  * Decrypts an encrypted string using the Web Crypto API.

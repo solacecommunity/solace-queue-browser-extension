@@ -1,4 +1,95 @@
 
+
+/**
+ * Validates the Message VPN URL.
+ * 
+ * @param {string} msgVpnUrl - The Message VPN URL to validate.
+ * @returns {boolean} - Returns true if the URL is valid, false otherwise.
+ */
+export function isValidMsgVpnUrl(msgVpnUrl) {
+    const regex = /^https:\/\/.*\.messaging\.solace\.cloud:943\/?$/;
+    return regex.test(msgVpnUrl);
+}
+
+/**
+ * Validates if the encryption key meets the required criteria.
+ * 
+ * @param {string} key - The encryption key to validate.
+ * @returns {boolean} - Returns true if the key is valid, false otherwise.
+ */
+export function isValidEncryptionKey(key) {
+    const minLength = 8;
+    const hasNumber = /\d/;
+    const hasSymbol = /[!@#$%^&*(),.?":{}|<>]/;
+    const hasCapitalLetter = /[A-Z]/;
+
+    return key.length >= minLength && hasNumber.test(key) && hasSymbol.test(key) && hasCapitalLetter.test(key);
+}
+
+/**
+ * Validates the Solace Message Router Host protocol.
+ * 
+ * @param {string} smfHost - The Solace Message Router Host to validate.
+ * @returns {boolean} - Returns true if the protocol is valid, false otherwise.
+ */
+export function isValidSmfHostProtocol(smfHost) {
+    const regex = /^(ws|wss|http|https):\/\/.*/;
+    return regex.test(smfHost);
+}
+
+/**
+ * Retrieves the value of a DOM element by its ID.
+ * 
+ * @param {string} id - The ID of the DOM element.
+ * @returns {string} The value of the DOM element.
+ */
+export function getValue(id) {
+    return document.getElementById(id).value;
+}
+
+/**
+* Sets the value of a DOM element by its ID.
+* 
+* @param {string} id - The ID of the DOM element.
+* @param {string} value - The value to set for the DOM element. Defaults to an empty string if not provided.
+*/
+export function setValue(id, value) {
+    document.getElementById(id).value = value || '';
+}
+
+/**
+* Retrieves the checked state of a checkbox DOM element by its ID.
+* 
+* @param {string} id - The ID of the checkbox DOM element.
+* @returns {boolean} The checked state of the checkbox.
+*/
+export function getChecked(id) {
+    return document.getElementById(id).checked;
+}
+
+/**
+* Sets the checked state of a checkbox DOM element by its ID.
+* 
+* @param {string} id - The ID of the checkbox DOM element.
+* @param {boolean} value - The checked state to set for the checkbox. Defaults to false if not provided.
+*/
+export function setChecked(id, value) {
+    document.getElementById(id).checked = value || false;
+}
+
+/**
+ * Handles errors by logging them to the console and displaying a modal notification to the user.
+ * 
+ * @param {Error} error - The error object to handle.
+ */
+export function handleError(error) {
+    console.error(error);
+    utils.showModalNotification('Error', error.message);
+}
+
+
+
+
 /**
  * Checks if a variable is empty. A variable is considered empty if it is not a boolean and meets one of the following conditions:
  * - It is falsy and not the number 0.
@@ -154,7 +245,7 @@ export function showModalNotification(title, message, reload = false) {
             }, 250);
         }
     });
-    
+
 
     // Append the heading, message, and close button to the content
     content.appendChild(heading);
@@ -297,7 +388,7 @@ export function displayEncryptionKeyInputWindow(title, message = '', cancelOptio
     submitButton.style.color = 'white';
     submitButton.style.borderRadius = '5px';
     submitButton.style.cursor = 'pointer';
-    
+
     // Append buttons to the button container
     buttonContainer.appendChild(submitButton);
 
@@ -402,7 +493,7 @@ export function showResetConfirmationWindow() {
     closeButton.addEventListener('click', (event) => {
         document.body.removeChild(modal);
     });
-    
+
     // Trigger close button click when Enter key is pressed
     closeButton.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
