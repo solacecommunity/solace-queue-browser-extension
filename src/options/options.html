@@ -3,57 +3,138 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Emixa Developer Helper options (use at your own risk!)</title>
+  <title>Emixa Solace Extension Options</title>
+  <link rel="shortcut icon" href="https://www.emixa.com/hubfs/favicon-32x32.png">
   <link rel="stylesheet" type="text/css" href="options.css">
+  <!-- Load Solace Web Messaging API for JavaScript -->
+  <script src="../lib/solclient.js"></script>
+  <script type="module" src="options.js"></script>
 </head>
 
 <body>
+
   <div class="center-input">
     <div>
       <img class="solace-logo" src="../img/Solace-logo-green.png" alt="Solace Logo">
     </div>
-    <div>
-      <label for="userName">Username</label>
-      <input type="text" id="userName" class="save-connection-input" placeholder="solace-cloud-client">
-    </div>
-    <div>
-      <label for="password">Password</label>
-      <input type="password" id="password" class="save-connection-input" placeholder="**************">
-    </div>
-    <div>
-      <label for="msgVpn">Message VPN</label>
-      <input type="text" id="msgVpn" class="save-connection-input" placeholder="example-message-vpn">
-    </div>
-    <div>
-      <label for="smfHost">Secured SMF Host</label>
-      <input type="text" id="smfHost" class="save-connection-input" placeholder="wss://example.messaging.solace.cloud:12345">
-    </div>
-
-    <div>
-      <table style="width: 100%;">
-        <tr>
-          <td colspan="2"><br></td>
-        </tr>
-        <tr>
-          <td style="width: 600px;">
-            <label for="showUserProps">Display User Properties</label>
-          </td>
-          <td style="float: right;">
-            <div class="features-wrapper">
-              <input id="showUserProps" type="checkbox" class="features">
+    <div class="container">
+      <div class="left-container">
+        <!-- Connection Instance header & New Connection button container-->
+        <div class="container">
+          <div class="left-container">
+            <h2 class="headers">Connection Instances</h2>
+          </div>
+          <div class="right-container"><button id="newConnection" class="button-wrapper" role="button">New Connection</button></div>
+        </div>
+        <!-- Search box -->
+        <div class="search-container">
+          <input type="text" id="searchBox" placeholder="Search connections...">
+        </div>
+        <!-- Connection Instance container -->
+        <div id="connections" class="inner-left-container">
+        </div>
+      </div>
+      <div class="right-container">
+        <!-- Connection header container -->
+        <div class="container">
+          <div class="left-container"></div>
+          <div class="right-container button-container">
+            <button id="reset" class="button-wrapper options-btn warning-color">Reset</button>
+            <button id="changeKey" class="button-wrapper add-space-btn options-btn confirm-color">Change Key</button>
+            <!-- <button id="testConnection" class="button-wrapper options-btn save-btn">Test Connection</button> -->
+            <button id="importConnections" class="button-wrapper add-space-btn options-btn">Import</button>
+            <button id="exportConnections" class="button-wrapper options-btn">Export</button>
+            <input type="file" id="fileInput" style="display: none;" accept=".json" />
+            <!-- <h2 class="headers align-right">Connection</h2> -->
+          </div>
+        </div>
+        <!-- Connection fields container -->
+        <div class="inner-right-container">
+          <div id="connectionForm">
+            <div>
+              <label for="connectionName">Connection Name</label>
+              <input type="text" id="connectionName" class="save-connection-input" placeholder="Production"><br><br>
             </div>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="2"><hr></td>
-        </tr>
-      </table>
+            <div>
+              <label for="userName">Username</label>
+              <input type="text" id="userName" class="save-connection-input" placeholder="solace-cloud-client">
+            </div>
+            <div>
+              <label for="password">Password</label>
+              <input type="password" id="password" class="save-connection-input" placeholder="**************">
+            </div>
+            <div>
+              <label for="msgVpn">Message VPN</label>
+              <input type="text" id="msgVpn" class="save-connection-input" placeholder="example-message-vpn">
+            </div>
+            <div>
+              <label for="hostName">Host name</label>
+              <input type="text" id="hostName" class="save-connection-input"
+                placeholder="mr-connection-vj2c3yit21"><br>
+            </div>
+            <div>
+              <label for="msgVpnUrl">Message VPN URL</label>
+              <input type="text" id="msgVpnUrl" class="save-connection-input readonly-input"
+                placeholder="https://{{host_name}}.messaging.solace.cloud:943" readonly><br>
+            </div>
+            <div>
+              <label for="smfHost">JavaScript API Endpoint (URL)</label>
+              <input type="text" id="smfHost" class="save-connection-input readonly-input"
+                placeholder="wss://{{host_name}}.messaging.solace.cloud:443" readonly>
+            </div>
+            <div style="display:none;">
+              <input type="text" id="connectionId">
+            </div>
+            <div>
+              <table style="width: 100%;">
+                <tr>
+                  <td colspan="2"><br></td>
+                </tr>
+                <tr>
+                  <td style="width: 600px;">
+                    <label class="sub-headers" for="showMsgPayload">Display Message Payload</label>
+                  </td>
+                  <td style="float: right;">
+                    <div class="features-wrapper">
+                      <input id="showMsgPayload" type="checkbox" class="features">
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2">
+                    <hr>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="width: 600px;">
+                    <label class="sub-headers" for="showUserProps">Display User Properties</label>
+                  </td>
+                  <td style="float: right;">
+                    <div class="features-wrapper">
+                      <input id="showUserProps" type="checkbox" class="features">
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2">
+                    <hr>
+                  </td>
+                </tr>
+              </table>
+            </div>
+            <!-- Save & Delete button container -->
+            <div class="container">
+              <div class="left-container"><button id="save" class="button-wrapper save-btn confirm-color"
+                  role="button">Save</button>
+              </div>
+              <div class="right-container"><button id="delete" class="button-wrapper delete-btn warning-color"
+                  role="button">Delete</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-
-    <button id="save" class="save-btn" role="button"></button>
   </div>
-  
-  <script src="options.js"></script>
 </body>
 
 </html>

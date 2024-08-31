@@ -1,151 +1,382 @@
 
-chrome.runtime.onMessage.addListener(
-	function (request, sender, sendResponse) {
-
-		// Extract queue name from page
-		if (request.action === "extractQueueName") {
-			const dataRow = document.getElementsByClassName('title title-content detail-title-width ellipsis-data');
-			const rawQueueName =  dataRow[0].innerHTML;
-			console.log('RAW QUEUE NAME on PAGE: '+rawQueueName);
-			const processedQueueName = transformRawQueueName(rawQueueName);
-			console.log('PROCESSED QUEUE NAME on PAGE: '+processedQueueName);
-			sendResponse({'queueNameonPage': processedQueueName});
-		}
-
-		// Send error message to page
-		if (request.action === "setError") {
-			showModalNotification('Error', request.error);
-			sendResponse({'errorThrow': request.action});
-		}
-		
-		// Set payload on page
-		if (request.action === 'setPayload') {
-			
-			// Check first if container has been created. If so, then plugin has already run and needs to 
-			// reload new data. This prevents duplicate messages from appearing in the UI
-			const containerDivExisting = document.getElementById(`queue-extension-container-${request.messageId}`);
-			if (containerDivExisting) {
-				containerDivExisting.remove();
-			}
-
-            // Currently, findMessages() returns all msgs on a queue. The UI can only display a max of
-            // 100 msgs. If there are 300 msgs returned and only 100 displayed, document.getElementById will 
-            // be called 300 times but only find elements relating to 100 messages. The other 200 will return null
-            // and error when dataRow.parentElement is executed.
-            // This is only an issue because Javascript API does not support Selectors. Once we can return only msgs
-            // we are interested in, then this check can be removed.
-			const dataRow = document.getElementById(`list-row-menu_Messages_Queued_${request.messageId}`);
-			if (dataRow) {
-				const dataRowParent = dataRow.parentElement;
-				const expandedRow = dataRowParent.parentElement.children[1];
-				const expandedDiv = expandedRow.getElementsByTagName('compose')[0];
-				
-				// Create Application Message ID label
-				const appMsgIdLblId = `app-msg-id-lbl-${request.messageId}`;
-				const appMsgIdLblValueId = `app-msg-id-lbl-value-${request.messageId}`;
-
-				const appMsgIdLbl = createLabel(appMsgIdLblId, `Application Message ID:`);
-				appMsgIdLbl.style.marginRight = '5px';
-				const appMsgIdValueLbl = createLabel(appMsgIdLblValueId, request.appMsgId);
-				appMsgIdValueLbl.style.color = 'black';
-
-				expandedDiv.appendChild(appMsgIdLbl);
-				expandedDiv.appendChild(appMsgIdValueLbl);
-
-				createAndAppendHorizontalLine(expandedDiv);
-				
-				// Create container div for the Queue Message and the User Properties.
-				const containerDivId = `queue-extension-container-${request.messageId}`;
-				const containerDiv = createContainerDiv(containerDivId, expandedDiv);
-				containerDiv.style.display = 'flex';
-				containerDiv.style.justifyContent = 'space-between'; // Optional: Adds some space between the two elements
-				containerDiv.style.flexWrap = 'nowrap'; // Optional: Prevents the elements from wrapping to the next line
-				containerDiv.style.margin = '10px 0 20px 0'; // Optional: Adds some margin to the top and bottom of the div
-				expandedDiv.appendChild(containerDiv);
-
-
-				// Queue Message element IDs
-				const msgContainerDivId = `queue-msg-conatiner-${request.messageId}`;
-				const msgTitleLblId		= `queue-msg-title-${request.messageId}`;
-				const msgPreId 			= `queue-msg-pre-${request.messageId}`;
-				const msgCopyBtnId 		= `queue-msg-copy-btn-${request.messageId}`;
-				const msgCopyLblId 		= `queue-msg-copy-lbl-${request.messageId}`;
-				
-				
-				// Create container div for the Queue Message
-				const msgContainerDiv = createContainerDiv(msgContainerDivId);
-				msgContainerDiv.style.width = '50%'; // Optional: Sets the width of the div to 50% of the parent div
-
-				// Create Title for the Queue Message
-				const msgTitleLbl = createLabel(msgTitleLblId, 'Queue Message');
-
-				// Create Pre element for the Queue Message
-				const msgPre = createPreElement(msgPreId, request.payload);
-				
-				// Create Copy button for the Queue Message
-				const msgBtnText = 'Copy Message to Clipboard';
-				const msgCopyBtn = createCopyButton(msgCopyBtnId, msgBtnText, msgPreId, msgCopyLblId);
-				
-				// Create Copied label for the Queue Message
-				const msgLblText = 'Message Copied to Clipboard';
-				const msgCopyLbl = createCopiedLabel(msgCopyLblId, msgLblText);
-				
-				// Append elements to the container div
-				msgContainerDiv.appendChild(msgTitleLbl);
-				msgContainerDiv.appendChild(msgPre);
-				msgContainerDiv.appendChild(msgCopyBtn);
-				msgContainerDiv.appendChild(msgCopyLbl);
-				containerDiv.appendChild(msgContainerDiv);
-				
-				if (!isEmpty(request.userProps)) {
-					// User Property element IDs
-					const userPropContainerId 		= `user-prop-conatiner-${request.messageId}`;
-					const userPropTitleLblId		= `user-prop-title-${request.messageId}`;
-					const userPropPreId				= `user-prop-pre-${request.messageId}`;
-					const userPropCopyBtnId 		= `user-prop-copy-btn-${request.messageId}`;
-					const userPropCopyLblId 		= `user-prop-copy-lbl-${request.messageId}`;
-					
-					// Create Pre element for the User Properties
-					const userPropContainerDiv = createContainerDiv(userPropContainerId);
-					userPropContainerDiv.style.width = '50%'; // Optional: Sets the width of the div to 50% of the parent div
-					
-					// Create Title for the User Properties
-					const userPropTitleLbl = createLabel(userPropTitleLblId, 'User Properties');
-
-					// Create Pre element for the User Properties
-					const userPropPre = createPreElement(userPropPreId, JSON.stringify(request.userProps, null, "\t"));
-					
-					// Create Copy button for the User Properties
-					const userPropBtnText = 'Copy Properties to Clipboard';
-					const userPropCopyBtn = createCopyButton(userPropCopyBtnId, userPropBtnText, userPropPreId, userPropCopyLblId);
-
-					// Create Copied label for the User Properties
-					const userPropLblText = 'Properties Copied to Clipboard';
-					const userPropCopyLbl = createCopiedLabel(userPropCopyLblId, userPropLblText);
-
-					// Append elements to the container div
-					userPropContainerDiv.appendChild(userPropTitleLbl);
-					userPropContainerDiv.appendChild(userPropPre);
-					userPropContainerDiv.appendChild(userPropCopyBtn);
-					userPropContainerDiv.appendChild(userPropCopyLbl);
-					containerDiv.appendChild(userPropContainerDiv);
-				}
-			} else {
-				console.log('Queue message not found on page');
-			}
-			sendResponse({
-				'farewell': request.action
-			});
-		}
+// Listen for messages from the background script
+// The background script will send a message to the content script to request the encryption key from the user (requestEncryptionKey)
+// The background script will send a message to the content script to extract the queue name from the page (getQueueName)
+// The background script will send a message to the content script to set the payload on the page (setPayload)
+// The background script will send a message to the content script to set an error message on the page (setError)
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+	switch (request.action) {
+		case "createFindMsgButton":
+			this.setTimeout(() => {
+				createFindMsgButton();
+			}, 2000);
+			break;
+		case "requestEncryptionKey":
+			requestEncryptionKey();
+			break;
+		case "getQueueName":
+			getQueueName(sendResponse);
+			break;
+		case "setPayload":
+			setPayload(request)
+			break;
+		case "setError":
+			showModalNotification(request.error.name, request.error.message);
+			break;
+		default:
+			console.error("Unknown action:", request.action);
+			showModalNotification("Error", `Unknown action: ${request.action}`);
 	}
-);
+});
 
 /**
- * Shows a modal notification message.
+ * Creates the Find Messages button on the page.
+ * 
+ * This function does the following:
+ * 1. Checks if the Find Messages button already exists on the page.
+ * 2. If not, creates the Find Messages button and adds an event listener to it.
+ * 3. When the Find Messages button is clicked, sends a message to the background script to trigger the Find Messages logic.
+ */
+function createFindMsgButton() {
+	if (document.getElementById('findMsgs')) return;
+	const displayMsgBtn = document.createElement('li');
+	displayMsgBtn.className = 'au-target nav-item action-menu list-action';
+	displayMsgBtn.innerHTML = `
+		<button id="findMsgs" class="au-target nav-link create-action" tabindex="0">
+			<i class="material-icons">add</i>
+			<span class="label-sm">Find Messages</span>
+		</button>
+	`;
+	const navBar = document.querySelector('.au-target.table-action-panel.nav.flex-nowrap');
+	const lastChild = navBar.lastElementChild;
+	navBar.insertBefore(displayMsgBtn, lastChild);
+
+	const createActionButton = displayMsgBtn.querySelector('#findMsgs');
+	createActionButton.addEventListener('click', () => {
+		chrome.runtime.sendMessage({ action: "triggerFindMsg" });
+	});
+}
+
+/**
+ * Displays an input window to prompt the user to enter an encryption key.
+ * 
+ * This function does the following:
+ * 1. Displays an input window to prompt the user to enter an encryption key.
+ * 2. When the user clicks the submit button, the entered key is saved in session storage.
+ */
+function requestEncryptionKey() {
+	displayEncryptionKeyInputWindow('Enter Encryption Key', 'Enter the encryption key to decrypt the messages.');
+
+	const encryptionKeyInputWindow = document.getElementById('encryption-key-input-window');
+	const submitButton = document.getElementById('encryption-key-input-submit-button');
+	const inputBox = document.getElementById('encryption-key-input');
+
+	if (!submitButton || !inputBox) {
+		return;
+	}
+
+	try {
+		// Handle the Encryption input window submit button click
+		submitButton.addEventListener('click', (event) => {
+			event.stopPropagation();
+			const inputValue = inputBox.value;
+			if (inputValue) {
+				document.body.removeChild(encryptionKeyInputWindow);
+
+				// Send message to background script to indicate that the encryption key has been received
+				chrome.runtime.sendMessage({ action: 'encryptionKeyReceived', encryptionKey: inputValue });
+			} else {
+				showModalNotification('Missing Key', 'No key has been entered. Please enter an encryption key');
+			}
+		});
+	} catch (error) {
+		console.error(error);
+		showModalNotification('Error', error.message);
+	}
+}
+
+/**
+ * Extracts the queue name from the page and sends it to the background script.
+ */
+function getQueueName(sendResponse) {
+	const dataRow = document.querySelector('.title.title-content.detail-title-width.ellipsis-data');
+	if (!dataRow) {
+		console.error('Queue name element not found.');
+		showModalNotification('Error', 'Queue name element not found.');
+		return '';
+	}
+	const queueName = dataRow.textContent.split('|').pop().trim();
+	sendResponse({
+		'queueNameOnPage': queueName
+	});
+}
+
+/**
+ * Sets the payload on the page.
+ * 
+ * @param {object} request - The request object containing the message ID, metadata properties, user properties, and queued message.
+ * @param {string} request.message - A message from the queue.
+ */
+async function setPayload(request) {
+	const message = request.message;
+
+	if (isEmpty(message)) {
+		console.error('Message is empty.');
+		showModalNotification('Error', 'Message is empty.');
+		return;
+	}
+
+	try {
+		removeExistingElements(message.messageId);
+		/*
+			Currently, queryMessagesFromQueue() in finMessages.js file returns all msgs on a queue. 
+			The UI contains only 100 messages or `list-row-menu_Messages_Queued_${request.messageId =< 100 elements.}`.
+			E.g. if there are 300 msgs returned and only 100 displayed.
+			Therefore, the below check is necessary to avoid errors when trying to find elements that do not exist.
+			This is only an issue because the Solace Javascript API does not support Selectors. Once we can return only msgs
+			we are interested in, then this check can be removed.
+		*/
+		const dataRow = document.getElementById(`list-row-menu_Messages_Queued_${message.messageId}`);
+		if (dataRow) {
+			const expandedDiv = findElementToAppendPayloadContainer(dataRow);
+			createMetaDataContainer(expandedDiv, message.messageId, message.metadataPropList);
+			createPayloadContainer(expandedDiv, message.messageId, message.userProps, message.queuedMsg);
+		}
+	} catch (error) {
+		console.error(error);
+		showModalNotification('Error', error.message);
+	}
+}
+
+/**
+ * Removes existing elements from the page.
+ * 
+ * @param {string} messageId - The ID of the message.
+ */
+function removeExistingElements(messageId) {
+	const elementsToRemove = [
+		`application-properties-container-${messageId}`,
+		`queue-extension-container-${messageId}`,
+		`line-${messageId}`
+	];
+	elementsToRemove.forEach(id => {
+		const element = document.getElementById(id);
+		if (element) element.remove();
+	});
+}
+
+/**
+ * Finds the element to which the payload container will be appended.
+ * 
+ * @param {HTMLElement} dataRow - The data row element.
+ * @returns {HTMLElement} - The element to which the payload container will be appended.
+ */
+function findElementToAppendPayloadContainer(dataRow) {
+	const dataRowParent = dataRow.parentElement;
+	const expandedRow = dataRowParent.parentElement.children[1];
+	return expandedRow.getElementsByTagName('compose')[0];
+}
+
+/*
+	Create container for Metadata properties.
+
+	@param {HTMLElement} expandedDiv - The HTML element to which the metadata container will be appended.
+	@param {string} messageId - The ID of the message.
+	@param {object} metadataPropList - The metadata properties of the message.
+*/
+function createMetaDataContainer(expandedDiv, messageId, metadataPropList) {
+	const metaDataContainer = `
+		<div id="application-properties-container-${messageId}" style="display:flex; justify-content:space-between; flex-wrap:nowrap; margin:10px 0 20px 0;">
+			<div style="flex: 1;">
+				<label id="app-msg-id-lbl-${messageId}" style="margin-right:5px;">Application Message ID:</label>
+				<label id="app-msg-id-lbl-value-${messageId}" style="color:black;">${metadataPropList.appMsgId}</label>
+			</div>
+			<div style="flex: 1;">
+				<label id="dest-name-id-lbl-${messageId}" style="margin-right:5px;">Destination Name:</label>
+				<label id="dest-name-id-lbl-value-${messageId}" style="color:black;">${metadataPropList.destinationName}</label>
+			</div>
+			<div style="flex: 1;">
+				<label id="dest-type-id-lbl-${messageId}" style="margin-right:5px;">Destination Type:</label>
+				<label id="dest-type-id-lbl-value-${messageId}" style="color:black;">${metadataPropList.destinationType}</label>
+			</div>
+		</div>
+		<hr id="line-${messageId}">
+	`;
+	expandedDiv.innerHTML += metaDataContainer;
+}
+
+/*
+	Create container for Queue Message and User Properties.
+
+	@param {HTMLElement} expandedDiv - The HTML element to which the payload container will be appended.
+	@param {string} messageId - The ID of the message.
+	@param {object} userProps - The User Properties of the message.
+	@param {string} queuedMsg - The Queued Message of the message.
+*/
+function createPayloadContainer(expandedDiv, messageId, userProps, queuedMsg) {
+	let queueMsgPreId = `queue-msg-pre-${messageId}`;
+	let queueMsgCpyBtnId = `queue-msg-copy-btn-${messageId}`;
+	let queueMsgCpyLblId = `queue-msg-copy-lbl-${messageId}`;
+
+	let messageContainer = `
+		<div id="queue-extension-container-${messageId}" style="display:flex; justify-content:space-between; flex-wrap:nowrap; margin:10px 0 20px 0;">
+	`;
+
+	// Append the queued message container if queuedMsg is not empty
+	if (!isEmpty(queuedMsg)) {
+		let queuedMsg = `
+			<div queue-msg-conatiner-${messageId} style="flex: 1">
+				<label id="queue-msg-title-${messageId}">Queue Message</label>
+				<pre id="${queueMsgPreId}"></pre>
+				<button id="${queueMsgCpyBtnId}" style="margin-right:10px;">Copy Message to Clipboard</button>
+				<label id="${queueMsgCpyLblId}" style="display:none;">Message Copied to Clipboard</label>
+			</div>
+		`;
+		messageContainer += queuedMsg;
+	}
+
+	// Append the user properties container if userProps is not empty
+	let userPropPreId = `user-prop-pre-${messageId}`;
+	let userPropCpyBtnId = `user-prop-copy-btn-${messageId}`;
+	let userPropCpyLblId = `user-prop-copy-lbl-${messageId}`;
+	if (!isEmpty(userProps)) {
+		let userPropContainer = `
+			<div id="user-prop-conatiner-${messageId}" style="flex: 1">
+				<label id="user-prop-title-${messageId}">User Properties</label>
+				<pre id="${userPropPreId}">${JSON.stringify(userProps, null, "\t")}</pre>
+				<button id="${userPropCpyBtnId}" style="margin-right:10px;">Copy Properties to Clipboard</button>
+				<label id="${userPropCpyLblId}" style="display:none;">Properties Copied to Clipboard</label>
+			</div>
+		`;
+		messageContainer += userPropContainer;
+	}
+
+	messageContainer += '</div>';
+	expandedDiv.innerHTML += messageContainer;
+
+	if (!isEmpty(queuedMsg)) {
+		// Bug: when the message queuedMsg is XML, the < and > characters are not displayed correctly.
+		// This is because the browser interprets them as HTML tags. To fix this, create a text node
+		// and append it to the pre element after it has been created.
+		const preElement = document.getElementById(queueMsgPreId);
+		preElement.appendChild(document.createTextNode(queuedMsg));
+
+		// Add event listener to the Message Queue copy button
+		const queueMsgCpyBtn = document.getElementById(queueMsgCpyBtnId);
+		queueMsgCpyBtn.addEventListener("click", () => copyToClipboard(queueMsgPreId, queueMsgCpyLblId));
+	}
+
+	// Add event listener to the User Properties copy button if userProps is not empty
+	if (!isEmpty(userProps)) {
+		const userPropCpyBtn = document.getElementById(userPropCpyBtnId);
+		userPropCpyBtn.addEventListener("click", () => copyToClipboard(userPropPreId, userPropCpyLblId));
+	}
+}
+
+
+/**
+ * Shows a password input modal with a specified title and message.
+ * The modal includes an input field for the user to enter a password.
+ * The password is stored in the Chrome local storage.
  * 
  * @param {string} title - The title to display in the modal notification.
  * @param {string} message - The message to display in the modal notification.
- * @returns {void}
+ */
+function displayEncryptionKeyInputWindow(title, message) {
+	// Create the modal backdrop
+	const modal = document.createElement('div');
+	modal.id = 'encryption-key-input-window';
+	modal.style.position = 'fixed';
+	modal.style.width = '100%';
+	modal.style.height = '100%';
+	modal.style.top = '0';
+	modal.style.left = '0';
+	modal.style.background = 'rgba(0, 0, 0, 0.7)';
+	modal.style.zIndex = '1001';
+	// Create the modal content
+	const content = document.createElement('div');
+	content.style.position = 'fixed';
+	content.style.top = '50%';
+	content.style.left = '50%';
+	content.style.transform = 'translate(-50%, -50%)';
+	content.style.background = 'white';
+	content.style.padding = '20px';
+	content.style.zIndex = '1001';
+	content.style.borderRadius = '10px';
+	content.style.fontSize = '16px';
+	content.style.lineHeight = '1.5';
+	// Create the heading
+	const heading = document.createElement('h1');
+	heading.innerHTML = title;
+	heading.style.marginBottom = '10px';
+	const messageElement = document.createElement('p');
+	messageElement.id = 'modal-message';
+	messageElement.innerHTML = message;
+	// Create the input field
+	const inputElement = document.createElement('input');
+	inputElement.id = 'encryption-key-input';
+	inputElement.type = 'password';
+	inputElement.style.display = 'block';
+	inputElement.style.margin = '10px auto';
+	inputElement.style.padding = '10px';
+	inputElement.style.width = '80%';
+	inputElement.style.border = '1px solid #ccc';
+	inputElement.style.borderRadius = '5px';
+	// Create the button container
+	const buttonContainer = document.createElement('div');
+	buttonContainer.style.display = 'flex';
+	buttonContainer.style.justifyContent = 'space-between';
+	buttonContainer.style.marginTop = '20px';
+	// Create the close button
+	const closeButton = document.createElement('button');
+	closeButton.textContent = 'Close';
+	closeButton.style.display = 'block';
+	closeButton.style.margin = '20px auto 0';
+	closeButton.style.padding = '10px 20px';
+	closeButton.style.border = 'none';
+	closeButton.style.backgroundColor = '#ccc';
+	closeButton.style.color = 'black';
+	closeButton.style.borderRadius = '5px';
+	closeButton.style.cursor = 'pointer';
+	closeButton.textContent = 'Close';
+
+	// Remove the modal when the close button is clicked
+	closeButton.addEventListener('click', (event) => {
+		document.body.removeChild(modal);
+	});
+	// Create the submit button
+	const submitButton = document.createElement('button');
+	submitButton.id = 'encryption-key-input-submit-button';
+	submitButton.textContent = 'Submit';
+	submitButton.style.display = 'block';
+	submitButton.style.margin = '20px auto 0';
+	submitButton.style.padding = '10px 20px';
+	submitButton.style.border = 'none';
+	submitButton.style.backgroundColor = '#13aa52';
+	submitButton.style.color = 'white';
+	submitButton.style.borderRadius = '5px';
+	submitButton.style.cursor = 'pointer';
+
+	// Append buttons to the button container
+	buttonContainer.appendChild(submitButton);
+	buttonContainer.appendChild(closeButton);
+
+	content.appendChild(heading);
+	content.appendChild(messageElement);
+	content.appendChild(inputElement);
+	content.appendChild(buttonContainer);
+
+	// Append the content to the modal
+	modal.appendChild(content);
+	// Append the modal to the body
+	document.body.appendChild(modal);
+}
+
+/**
+ * Shows a modal notification with a specified title and message.
+ * 
+ * @param {string} title - The title to display in the modal notification.
+ * @param {string} message - The message to display in the modal notification.
  */
 function showModalNotification(title, message) {
 	// Create the modal backdrop
@@ -209,111 +440,8 @@ function showModalNotification(title, message) {
 
 	// Append the modal to the body
 	document.body.appendChild(modal);
-
-	// Remove the modal when it's clicked
-	modal.addEventListener('click', () => {
-		document.body.removeChild(modal);
-	});
 }
 
-
-
-/**
- * Creates a label element with the specified ID and text content.
- * 
- * @param {string} elementId - The ID to assign to the label element.
- * @param {string} textContent - The text content to display within the label element.
- * @returns {HTMLLabelElement} The newly created label element.
- */
-function createLabel(elementId, textContent) {
-	const newAppMsgIdLabel = document.createElement("label");
-	newAppMsgIdLabel.setAttribute("id", elementId);
-	newAppMsgIdLabel.appendChild(document.createTextNode(textContent));
-	return newAppMsgIdLabel;
-}
-
-/**
- * Creates and appends a horizontal line element to the specified parent element.
- * 
- * @param {HTMLElement} parentElement - The parent element to which the horizontal line will be appended.
- * @returns {void}
- */
-function createAndAppendHorizontalLine(parentElement) {
-	const newHorizontalLine = document.createElement("hr");
-	parentElement.appendChild(newHorizontalLine);
-}
-
-/**
- * Creates a container div element with the specified element ID.
- *
- * @param {string} elementId - The ID to be set for the container div.
- * @returns {HTMLDivElement} The created container div element.
- */
-function createContainerDiv(elementId) {
-	const containerDiv = document.createElement("div");
-	containerDiv.setAttribute("id", elementId);
-	return containerDiv;
-}
-
-/**
- * Creates a copy button element with the specified properties.
- * 
- * @param {string} elementId - The ID of the copy button element.
- * @param {string} labelText - The text to be displayed on the copy button.
- * @param {string} textElementId - The ID of the element containing the text to be copied.
- * @param {string} labelElementId - The ID of the element containing the label associated with the text to be copied.
- * @returns {HTMLButtonElement} The newly created copy button element.
- */
-function createCopyButton(elementId, labelText, textElementId, labelElementId) {
-	console.log('Creating copy button');
-	const newCopyButton = document.createElement("BUTTON");
-	newCopyButton.setAttribute("id", elementId);
-	newCopyButton.setAttribute("style", "margin-right:10px;");
-	newCopyButton.addEventListener("click", () => copyToClipboard(textElementId, labelElementId));
-	newCopyButton.appendChild(document.createTextNode(labelText));
-	return newCopyButton;
-}
-
-/**
- * Creates a new label element with the specified ID and text content.
- * The created label element is initially hidden.
- *
- * @param {string} elementId - The ID to be assigned to the label element.
- * @param {string} labelText - The text content of the label element.
- * @returns {HTMLLabelElement} The newly created label element.
- */
-function createCopiedLabel(elementId, labelText) {
-	const newCopiedLabel = document.createElement("label");
-	newCopiedLabel.setAttribute('id', elementId);
-	newCopiedLabel.setAttribute("style", "display:none;");
-	newCopiedLabel.appendChild(document.createTextNode(labelText));
-	return newCopiedLabel;
-}
-
-/**
- * Creates a new <pre> element with the specified ID and payload.
- * 
- * @param {string} elementId - The ID to assign to the new <pre> element.
- * @param {string} payload - The text content to be added to the new <pre> element.
- * @returns {HTMLElement} - The newly created <pre> element.
- */
-function createPreElement(elementId, payload) {
-	const newPreElement = document.createElement("pre");
-	newPreElement.setAttribute("id", elementId);
-	newPreElement.appendChild(document.createTextNode(payload));
-	return newPreElement;
-}
-
-/**
- * Transforms the raw queue name by extracting the actual queue name from the HTML tag.
- *
- * @param {string} rawQueueName - The raw queue name containing the HTML tag.
- * @returns {string} - The transformed queue name.
- */
-function transformRawQueueName(rawQueueName) {
-	const tagStart = '<font color="#BFBFBF">Queues | </font>';
-	return rawQueueName.substr(rawQueueName.indexOf(tagStart) + tagStart.length);
-}
 
 /**
  * Copies the text content of a specified HTML element to the clipboard.
@@ -325,10 +453,9 @@ function transformRawQueueName(rawQueueName) {
  */
 function copyToClipboard(textElementId, labelElementId) {
 	const textElement = document.getElementById(textElementId);
-	
+
 	if (textElement.textContent) {
 		navigator.clipboard.writeText(textElement.textContent);
-		
 		// Get the copied to clipboard label
 		const newCopiedDiv = document.getElementById(labelElementId);
 
@@ -338,13 +465,15 @@ function copyToClipboard(textElementId, labelElementId) {
 		newCopiedDiv.style.opacity = 1;
 
 		// Display copied to clipboard label
-		newCopiedDiv.style.color = "white";
-		newCopiedDiv.style.backgroundColor = "#04AA6D";
-		newCopiedDiv.style.padding = "5px";
-		newCopiedDiv.style.fontFamily = "Arial";
-		newCopiedDiv.style.display = "inline";
+		newCopiedDiv.style.cssText = `
+			color: white;
+			background-color: #04AA6D;
+			padding: 5px;
+			font-family: Arial;
+			display: inline;
+		`;
 
-	  
+
 		// Create a new style element
 		const style = document.createElement('style');
 		style.type = 'text/css';
@@ -366,9 +495,7 @@ function copyToClipboard(textElementId, labelElementId) {
 
 		// Add the fade-out class to the label
 		newCopiedDiv.classList.add('fade-out');
-		
-	} else {
-	  console.log('Initialization');
+
 	}
 }
 
@@ -395,6 +522,6 @@ function isEmpty(paramVar) {
 				return true;
 			}
 		}
-	} 
+	}
 	return false;
 }

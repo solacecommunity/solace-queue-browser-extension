@@ -1,0 +1,20 @@
+# Node modules
+node_modules/
+
+# Coverage directory
+coverage/
+
+# Build output
+dist/
+
+# Logs
+logs/
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE specific files
+.vscode/
+.idea/
