@@ -78,7 +78,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 function addInfoBoxEventListeners() {
   const elements = [
     { checkboxId: 'overrideMsgVpnUrl', infoBoxId: 'infoBoxMsgVpnUrl' },
-    { checkboxId: 'overrideSmfHost', infoBoxId: 'infoBoxSmfHost' }
+    { checkboxId: 'overrideSmfHost', infoBoxId: 'infoBoxSmfHost' },
+    { checkboxId: 'showMsgPayload', infoBoxId: 'infoBoxMsgPayload' },
+    { checkboxId: 'showUserProps', infoBoxId: 'infoBoxUserProps' }
   ];
 
   elements.forEach(({ checkboxId, infoBoxId }) => {
@@ -649,7 +651,16 @@ async function importFile(file) {
         }
       }
 
-      await chrome.storage.local.set(connections);
+      // Merge the imported connections with the existing connections
+      const existingConnections = await chrome.storage.local.get();
+      for (const connectionId in connections) {
+        if (connectionId in existingConnections) {
+          connections[connectionId].id = crypto.randomUUID();
+        }
+        existingConnections[connections[connectionId].id] = connections[connectionId];
+      }
+
+      await chrome.storage.local.set(existingConnections);
       window.location.reload();
     };
     reader.readAsText(file);

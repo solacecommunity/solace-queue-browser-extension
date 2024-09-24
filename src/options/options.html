@@ -77,7 +77,7 @@
                 <label for="msgVpnUrl">Message VPN URL</label>
                 <div class="features-wrapper checkbox-wrapper">
                   <input type="checkbox" id="overrideMsgVpnUrl" class="save-connection-input features">
-                  <div id="infoBoxMsgVpnUrl" class="info-box">Check this box to manually override the Message VPN URL.</div>
+                  <div id="infoBoxMsgVpnUrl" class="info-box">Manually override the Message VPN URL.</div>
                 </div>
               </div>
               <input type="text" id="msgVpnUrl" class="save-connection-input readonly-input"
@@ -88,6 +88,7 @@
                 <label for="smfHost">JavaScript API Endpoint (URL)</label>
                 <div class="features-wrapper checkbox-wrapper">
                   <input type="checkbox" id="overrideSmfHost" class="save-connection-input features">
+                  <div id="infoBoxSmfHost" class="info-box">Manually override the JavaScript API Endpoint.</div>
                 </div>
               </div>
               <input type="text" id="smfHost" class="save-connection-input readonly-input"
@@ -106,8 +107,9 @@
                     <label class="sub-headers" for="showMsgPayload">Display Message Payload</label>
                   </td>
                   <td style="float: right;">
-                    <div class="features-wrapper">
+                    <div class="features-wrapper checkbox-wrapper">
                       <input id="showMsgPayload" type="checkbox" class="features">
+                      <div id="infoBoxMsgPayload" class="info-box">Display the payload under each message.</div>
                     </div>
                   </td>
                 </tr>
@@ -121,8 +123,9 @@
                     <label class="sub-headers" for="showUserProps">Display User Properties</label>
                   </td>
                   <td style="float: right;">
-                    <div class="features-wrapper">
+                    <div class="features-wrapper checkbox-wrapper">
                       <input id="showUserProps" type="checkbox" class="features">
+                      <div id="infoBoxUserProps" class="info-box">Display the User Properties under each message.</div>
                     </div>
                   </td>
                 </tr>
