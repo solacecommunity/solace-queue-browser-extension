@@ -24,7 +24,8 @@
           <div class="left-container">
             <h2 class="headers">Connection Instances</h2>
           </div>
-          <div class="right-container"><button id="newConnection" class="button-wrapper" role="button">New Connection</button></div>
+          <div class="right-container"><button id="newConnection" class="button-wrapper" role="button">New
+              Connection</button></div>
         </div>
         <!-- Search box -->
         <div class="search-container">
@@ -69,16 +70,27 @@
             </div>
             <div>
               <label for="hostName">Host name</label>
-              <input type="text" id="hostName" class="save-connection-input"
-                placeholder="mr-connection-vj2c3yit21"><br>
+              <input type="text" id="hostName" class="save-connection-input" placeholder="mr-connection-vj2c3yit21"><br>
             </div>
             <div>
-              <label for="msgVpnUrl">Message VPN URL</label>
+              <div class="input-group">
+                <label for="msgVpnUrl">Message VPN URL</label>
+                <div class="features-wrapper checkbox-wrapper">
+                  <input type="checkbox" id="overrideMsgVpnUrl" class="save-connection-input features">
+                  <div id="infoBoxMsgVpnUrl" class="info-box">Manually override the Message VPN URL.</div>
+                </div>
+              </div>
               <input type="text" id="msgVpnUrl" class="save-connection-input readonly-input"
-                placeholder="https://{{host_name}}.messaging.solace.cloud:943" readonly><br>
+                placeholder="https://{{host_name}}.messaging.solace.cloud:943" readonly>
             </div>
             <div>
-              <label for="smfHost">JavaScript API Endpoint (URL)</label>
+              <div class="input-group">
+                <label for="smfHost">JavaScript API Endpoint (URL)</label>
+                <div class="features-wrapper checkbox-wrapper">
+                  <input type="checkbox" id="overrideSmfHost" class="save-connection-input features">
+                  <div id="infoBoxSmfHost" class="info-box">Manually override the JavaScript API Endpoint.</div>
+                </div>
+              </div>
               <input type="text" id="smfHost" class="save-connection-input readonly-input"
                 placeholder="wss://{{host_name}}.messaging.solace.cloud:443" readonly>
             </div>
@@ -95,8 +107,9 @@
                     <label class="sub-headers" for="showMsgPayload">Display Message Payload</label>
                   </td>
                   <td style="float: right;">
-                    <div class="features-wrapper">
+                    <div class="features-wrapper checkbox-wrapper">
                       <input id="showMsgPayload" type="checkbox" class="features">
+                      <div id="infoBoxMsgPayload" class="info-box">Display the payload under each message.</div>
                     </div>
                   </td>
                 </tr>
@@ -110,8 +123,9 @@
                     <label class="sub-headers" for="showUserProps">Display User Properties</label>
                   </td>
                   <td style="float: right;">
-                    <div class="features-wrapper">
+                    <div class="features-wrapper checkbox-wrapper">
                       <input id="showUserProps" type="checkbox" class="features">
+                      <div id="infoBoxUserProps" class="info-box">Display the User Properties under each message.</div>
                     </div>
                   </td>
                 </tr>

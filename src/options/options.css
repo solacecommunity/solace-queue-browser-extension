@@ -96,6 +96,17 @@ input:hover {
   overflow-y: scroll;
 }
 
+/* Override checkbox styling */
+.input-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.save-connection-input {
+  flex: 1;
+}
+
 /* Create equal row that stack on top of each other */
 .row {
   border-radius: 15px;
@@ -217,6 +228,29 @@ input:hover {
   }
 }
 
+.info-box {
+  display: none;
+  position: absolute;
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  padding: 10px;
+  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  width: 250px;
+  margin-bottom: 80px;
+}
+
+.features-wrapper-inline:hover .info-box {
+  display: block;
+}
+
+.checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  height: 15px;
+}
+
 /* Checkbox Styles */
 .features-wrapper .features {
   appearance: none;
@@ -279,13 +313,4 @@ input:hover {
 
 .features-wrapper .features:checked:hover {
   background-color: #535db3;
-}
-
-.features-wrapper .features:checked.encrypted {
-  background-color: #9a9ec3;
-}
-
-.features-wrapper .features:hover.encrypted {
-  background-color: #dfe1e4;
-  box-shadow: 0 0 0 0;
 }

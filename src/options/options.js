@@ -1,6 +1,6 @@
 
 import * as utils from '../lib/utils.js';
-import { encryptString, decryptString } from '../lib/encryptionUtils.js';
+import * as crypt from '../lib/encryptionUtils.js';
 
 // ########################################################################################
 
@@ -9,7 +9,7 @@ import { encryptString, decryptString } from '../lib/encryptionUtils.js';
 // This code adds an event listener to the 'DOMContentLoaded' event, which fires when the HTML document has finished loading.
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    const encryptionKey = await getEncryptionKey();
+    const encryptionKey = await crypt.getEncryptionKey();
     if (utils.isEmpty(encryptionKey)) {
       promptUserForEncryptionKey();
     } else {
@@ -19,57 +19,138 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('searchBox').addEventListener('input', searchConnections);
     // URL generator event listener
     document.getElementById('hostName').addEventListener('input', generateConnectionUrls);
+
+    // ReadOnly State Event Listeners
+    document.getElementById('overrideMsgVpnUrl').addEventListener('change', updateReadOnlyStateForMsgVpnUrlInputElement);
+    document.getElementById('overrideSmfHost').addEventListener('change', updateReadOnlyStateForSmfHostInputElement);
+
+    // Info Box Event Listeners
+    addInfoBoxEventListeners();
+
+
+    // Add event listeners to the 'Save', 'New Connection' and 'Delete buttons
+    document.getElementById('delete').addEventListener('click', deleteOption);
+    document.getElementById('save').addEventListener('click', saveOption);
+    document.getElementById('newConnection').addEventListener('click', createBlankConnection);
+
+    // Creates and downloads a JSON document containing the exported connections
+    document.getElementById('exportConnections').addEventListener('click', exportConnections);
+
+
+    // Click 'File Input' when 'Import Connections' button is clicked
+    document.getElementById('importConnections').addEventListener('click', () => {
+      const fileInput = document.getElementById('fileInput');
+      fileInput.value = ''; // Reset the file input
+      fileInput.click();
+    });
+
+    // Process the selected file for import
+    document.getElementById('fileInput').addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      importFile(file);
+    });
+
+    // // Tests the connection when the 'Test Connection' button is clicked
+    // document.getElementById('testConnection').addEventListener('click', testConnection);
+
+    // Display the encryption key input window when the 'Set Encryption Key' button is clicked
+    document.getElementById('changeKey').addEventListener('click', changeKey);
+
+    // Display the reset confirmation window when the 'Reset' button is clicked
+    document.getElementById('reset').addEventListener('click', resetExtension);
+
   } catch (error) {
-    console.error(error);
-    utils.showModalNotification('Error', error.message);
+    utils.handleError(error)
   }
 
 });
-
-function generateConnectionUrls() {
-  const hostName = document.getElementById('hostName').value;
-  const msgVpnUrl = `https://${hostName}.messaging.solace.cloud:943`;
-  setValue('msgVpnUrl', msgVpnUrl);
-
-  const smfHost = `wss://${hostName}.messaging.solace.cloud:443`;
-  setValue('smfHost', smfHost);
-}
-
-// Add event listeners to the 'Save', 'New Connection' and 'Delete buttons
-document.getElementById('delete').addEventListener('click', deleteOption);
-document.getElementById('save').addEventListener('click', saveOption);
-document.getElementById('newConnection').addEventListener('click', createBlankConnection);
-
-// Creates and downloads a JSON document containing the exported connections
-document.getElementById('exportConnections').addEventListener('click', exportConnections);
-
-
-// Click 'File Input' when 'Import Connections' button is clicked
-document.getElementById('importConnections').addEventListener('click', () => {
-  const fileInput = document.getElementById('fileInput');
-  fileInput.value = ''; // Reset the file input
-  fileInput.click();
-});
-
-// Process the selected file for import
-document.getElementById('fileInput').addEventListener('change', async (event) => {
-  const file = event.target.files[0];
-  importFile(file);
-});
-
-// // Tests the connection when the 'Test Connection' button is clicked
-// document.getElementById('testConnection').addEventListener('click', testConnection);
-
-// Display the encryption key input window when the 'Set Encryption Key' button is clicked
-document.getElementById('changeKey').addEventListener('click', changeKey);
-
-// Display the reset confirmation window when the 'Reset' button is clicked
-document.getElementById('reset').addEventListener('click', resetExtension);
 
 
 // ########################################################################################
 
 // DOM Functions
+
+
+/**
+ * Adds event listeners to the 'mouseover' and 'mouseout' events for the 
+ * 'Override SMF Host' and 'Override Message VPN URL' checkboxes.
+ */
+function addInfoBoxEventListeners() {
+  const elements = [
+    { checkboxId: 'overrideMsgVpnUrl', infoBoxId: 'infoBoxMsgVpnUrl' },
+    { checkboxId: 'overrideSmfHost', infoBoxId: 'infoBoxSmfHost' },
+    { checkboxId: 'showMsgPayload', infoBoxId: 'infoBoxMsgPayload' },
+    { checkboxId: 'showUserProps', infoBoxId: 'infoBoxUserProps' }
+  ];
+
+  elements.forEach(({ checkboxId, infoBoxId }) => {
+    const checkbox = document.getElementById(checkboxId);
+    const infoBox = document.getElementById(infoBoxId);
+
+    checkbox.addEventListener('mouseover', () => {
+      infoBox.style.display = 'block';
+    });
+
+    checkbox.addEventListener('mouseout', () => {
+      infoBox.style.display = 'none';
+    });
+  });
+}
+
+/**
+ * Updates the read-only state of the SMF Host URL input element based on the state of 
+ * the 'Override SMF Host' checkbox.
+ */
+function updateReadOnlyStateForMsgVpnUrlInputElement() {
+  const msgVpnUrlInput = document.getElementById('msgVpnUrl');
+  const overrideMsgVpnUrlCheckbox = document.getElementById('overrideMsgVpnUrl');
+
+  if (overrideMsgVpnUrlCheckbox.checked) {
+    msgVpnUrlInput.removeAttribute('readonly');
+    msgVpnUrlInput.classList.remove('readonly-input');
+  } else {
+    msgVpnUrlInput.setAttribute('readonly', true);
+    msgVpnUrlInput.classList.add('readonly-input');
+  }
+}
+
+/**
+ * Updates the read-only state of the SMF Host URL input element based on the state of
+ * the 'Override SMF Host' checkbox.
+ */
+function updateReadOnlyStateForSmfHostInputElement() {
+  const smfHostInput = document.getElementById('smfHost');
+  const overrideSmfHostCheckbox = document.getElementById('overrideSmfHost');
+
+  if (overrideSmfHostCheckbox.checked) {
+    smfHostInput.removeAttribute('readonly');
+    smfHostInput.classList.remove('readonly-input');
+  } else {
+    smfHostInput.setAttribute('readonly', true);
+    smfHostInput.classList.add('readonly-input');
+  }
+}
+
+/**
+ * Builds the Message VPN URL and SMF Host URL based on the host name provided by the user.
+ * This function is called each time the user enters a character in the 'hostName' input field.
+ */
+function generateConnectionUrls() {
+  const hostName = document.getElementById('hostName').value;
+
+  const msgVpnUrl = document.getElementById('msgVpnUrl');
+  const smfHost = document.getElementById('smfHost');
+
+  if (msgVpnUrl.readOnly) {
+    const msgVpnUrlValue = `https://${hostName}.messaging.solace.cloud:943`;
+    utils.setValue('msgVpnUrl', msgVpnUrlValue);
+  }
+
+  if (smfHost.readOnly) {
+    const smfHostValue = `wss://${hostName}.messaging.solace.cloud:443`;
+    utils.setValue('smfHost', smfHostValue);
+  }
+}
 
 /**
  * Filters the connections based on the search input and updates the UI.
@@ -81,9 +162,9 @@ async function searchConnections() {
   // Filter connections based on the search term
   const filteredConnections = Object.values(connections).filter(connection => {
     return connection.connectionName.toLowerCase().includes(searchTerm) ||
-           connection.msgVpn.toLowerCase().includes(searchTerm) ||
-           connection.userName.toLowerCase().includes(searchTerm) ||
-           connection.smfHost.toLowerCase().includes(searchTerm);
+      connection.msgVpn.toLowerCase().includes(searchTerm) ||
+      connection.userName.toLowerCase().includes(searchTerm) ||
+      connection.smfHost.toLowerCase().includes(searchTerm);
   });
 
   // Clear the connections container and re-populate with filtered connections
@@ -140,7 +221,7 @@ async function populateUI() {
 async function saveOption() {
   try {
     // Set DOM connection ID
-    setValue('connectionId', getValue('connectionId') || crypto.randomUUID());
+    utils.setValue('connectionId', utils.getValue('connectionId') || crypto.randomUUID());
 
     // Check for any missing fields
     if (!validateMandatoryConnectionFieldValues()) {
@@ -149,34 +230,36 @@ async function saveOption() {
     }
 
     const currentConnection = {
-      id: getValue('connectionId'),
-      connectionName: getValue('connectionName'),
-      hostName: getValue('hostName'),
-      smfHost: getValue('smfHost'),
-      msgVpn: getValue('msgVpn'),
-      msgVpnUrl: getValue('msgVpnUrl'),
-      userName: getValue('userName'),
-      password: getValue('password'),
-      showUserProps: getChecked('showUserProps'),
-      showMsgPayload: getChecked('showMsgPayload'),
+      id: utils.getValue('connectionId'),
+      connectionName: utils.getValue('connectionName'),
+      hostName: utils.getValue('hostName'),
+      smfHost: utils.getValue('smfHost'),
+      msgVpn: utils.getValue('msgVpn'),
+      msgVpnUrl: utils.getValue('msgVpnUrl'),
+      userName: utils.getValue('userName'),
+      password: utils.getValue('password'),
+      overrideSmfHost: utils.getChecked('overrideSmfHost'),
+      overrideMsgVpnUrl: utils.getChecked('overrideMsgVpnUrl'),
+      showUserProps: utils.getChecked('showUserProps'),
+      showMsgPayload: utils.getChecked('showMsgPayload'),
       selected: true,
       encrypted: false,
       iv: null
     };
 
     // Validate JavaScript API Endpoint URL
-    if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
-      utils.showModalNotification('Invalid protocol','For the JavaScript API Enpoint field, please use one of ws://, wss://, http://, https://');
-      return;
-    }
-    
-    // Validate Message VPN URL
-    if (!isValidMsgVpnUrl(currentConnection.msgVpnUrl)) {
-      utils.showModalNotification('Invalid URL','For the Message VPN URL filed, please use a URL matching https://{{your_domain}}.messaging.solace.cloud:943');
+    if (!utils.isValidSmfHostProtocol(currentConnection.smfHost)) {
+      utils.showModalNotification('Invalid protocol', 'For the JavaScript API Enpoint field, please use one of ws://, wss://, http://, https://');
       return;
     }
 
-    const encryptionKey = await getEncryptionKey();
+    // Validate Message VPN URL
+    if (!utils.isValidMsgVpnUrl(currentConnection.msgVpnUrl)) {
+      utils.showModalNotification('Invalid URL', 'For the Message VPN URL filed, please use a URL matching https://{{your_domain}}.messaging.solace.cloud:943');
+      return;
+    }
+
+    const encryptionKey = await crypt.getEncryptionKey();
     if (utils.isEmpty(encryptionKey)) {
       return;
     }
@@ -185,7 +268,7 @@ async function saveOption() {
     testConnection();
 
     // Encrypt the password and store the encrypted string and IV
-    await encryptString(currentConnection.password, encryptionKey).then((encryptedData) => {
+    await crypt.encryptString(currentConnection.password, encryptionKey).then((encryptedData) => {
       currentConnection.password = encryptedData.encryptedString;
       currentConnection.iv = encryptedData.iv;
       currentConnection.encrypted = true;
@@ -212,8 +295,7 @@ async function saveOption() {
     initConnectionsContainer(connections);
 
   } catch (error) {
-    console.error(error);
-    utils.showModalNotification('Error', error.message);
+    utils.handleError(error);
   }
 }
 
@@ -244,7 +326,7 @@ function createBlankConnection() {
 
     let newConnectionId = crypto.randomUUID(); // Generate a unique identifier for the new connection
 
-    setValue('connectionId', newConnectionId);
+    utils.setValue('connectionId', newConnectionId);
 
     const connectionHTML = `
       <div id="${newConnectionId}" class="container row selected">
@@ -260,8 +342,7 @@ function createBlankConnection() {
     // Add an event listener to the new connection element to handle clicks (selecting the connection)
     document.getElementById(newConnectionId).addEventListener('click', getConnection);
   } catch (error) {
-    console.error(error);
-    utils.showModalNotification('Error', error.message);
+    utils.handleError(error);
   }
 }
 
@@ -277,7 +358,7 @@ async function deleteOption() {
     if (selectedConnection !== undefined) {
       if (selectedConnection.id !== '') {
         // Remove from local storage
-        await chrome.storage.local.remove(getValue('connectionId'));
+        await chrome.storage.local.remove(utils.getValue('connectionId'));
       }
 
       // Remove from DOM
@@ -287,8 +368,7 @@ async function deleteOption() {
       utils.showToastNotification('Connection deleted!', 'info');
     }
   } catch (error) {
-    console.error(error);
-    utils.showModalNotification('Error', error.message);
+    utils.handleError(error);
   }
 }
 
@@ -303,11 +383,11 @@ function testConnection() {
 
   // Get the active connection
   const currentConnection = {
-    id: getValue('connectionId'),
-    smfHost: getValue('smfHost'),
-    msgVpn: getValue('msgVpn'),
-    userName: getValue('userName'),
-    password: getValue('password'),
+    id: utils.getValue('connectionId'),
+    smfHost: utils.getValue('smfHost'),
+    msgVpn: utils.getValue('msgVpn'),
+    userName: utils.getValue('userName'),
+    password: utils.getValue('password'),
   };
 
   // Validate the mandatory fields
@@ -317,7 +397,7 @@ function testConnection() {
   }
 
   // Validate URL protocol
-  if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
+  if (!utils.isValidSmfHostProtocol(currentConnection.smfHost)) {
     utils.showModalNotification('Invalid protocol', 'For the Message VPN URL filed, please use one of ws://, wss://, http://, https://');
     return;
   }
@@ -421,17 +501,17 @@ function changeKey() {
       const inputValue = inputBox.value;
       if (inputValue) {
         await reencryptConnections(inputValue);
-        await setEncryptionKey(inputValue);
+        await crypt.setEncryptionKey(inputValue);
         document.body.removeChild(encryptionKeyInputWindow);
         utils.showToastNotification('Encryption key saved successfully!', 'success', 7000);
       } else {
         utils.showModalNotification('Missing Key', 'No key has been entered. Please enter an encryption key');
       }
     } catch (error) {
-      setEncryptionKey('');
+      crypt.setEncryptionKey('');
       document.body.removeChild(encryptionKeyInputWindow);
-      console.error(error);
-      utils.showModalNotification('Error', error.message);
+
+      utils.handleError(error);
     }
   });
 }
@@ -458,7 +538,7 @@ function promptUserForEncryptionKey() {
   submitButton.addEventListener('click', async (event) => {
     event.stopPropagation();
     const inputValue = inputBox.value;
-    if (!isValidEncryptionKey(inputValue)) {
+    if (!utils.isValidEncryptionKey(inputValue)) {
       utils.showModalNotification('Invalid Key', 'The encryption key must be at least 8 characters long, at least 1 capital letter, contain at least 1 number, and at least 1 symbol.');
       return;
     }
@@ -467,7 +547,7 @@ function promptUserForEncryptionKey() {
       return;
     }
 
-    await setEncryptionKey(inputValue);
+    await crypt.setEncryptionKey(inputValue);
     document.body.removeChild(encryptionKeyInputWindow);
     // At this point, we do not know if the encryption key is correct, so the UI should be reloaded.
     // populateUI() will load and decrypt the connections using the encryption key.
@@ -494,7 +574,7 @@ async function exportConnections() {
   try {
     const connections = await chrome.storage.local.get();
     // Validate the encryption key
-    const encryptionKey = await getEncryptionKey();
+    const encryptionKey = await crypt.getEncryptionKey();
     if (utils.isEmpty(encryptionKey)) {
       return;
     }
@@ -504,7 +584,7 @@ async function exportConnections() {
 
       connection.selected = false;
       if (connection.encrypted) {
-        await decryptString(connection.password, connection.iv, encryptionKey).then((decryptedData) => {
+        await crypt.decryptString(connection.password, connection.iv, encryptionKey).then((decryptedData) => {
           connection.password = decryptedData;
         });
         connection.iv = null;
@@ -519,8 +599,7 @@ async function exportConnections() {
     a.click();
 
   } catch (error) {
-    console.error(error);
-    utils.showModalNotification('Error', error.message);
+    utils.handleError(error);
   }
 }
 
@@ -547,7 +626,7 @@ async function importFile(file) {
   }
 
   try {
-    const encryptionKey = await getEncryptionKey();
+    const encryptionKey = await crypt.getEncryptionKey();
     if (utils.isEmpty(encryptionKey)) {
       return;
     }
@@ -564,7 +643,7 @@ async function importFile(file) {
       for (const connectionId in connections) {
         const connection = connections[connectionId];
         if (!connection.encrypted) {
-          await encryptString(connection.password, encryptionKey).then((encryptedData) => {
+          await crypt.encryptString(connection.password, encryptionKey).then((encryptedData) => {
             connection.password = encryptedData.encryptedString;
             connection.iv = encryptedData.iv;
             connection.encrypted = true;
@@ -572,13 +651,21 @@ async function importFile(file) {
         }
       }
 
-      await chrome.storage.local.set(connections);
+      // Merge the imported connections with the existing connections
+      const existingConnections = await chrome.storage.local.get();
+      for (const connectionId in connections) {
+        if (connectionId in existingConnections) {
+          connections[connectionId].id = crypto.randomUUID();
+        }
+        existingConnections[connections[connectionId].id] = connections[connectionId];
+      }
+
+      await chrome.storage.local.set(existingConnections);
       window.location.reload();
     };
     reader.readAsText(file);
   } catch (error) {
-    console.error(error);
-    utils.showModalNotification('Error', error.message);
+    utils.handleError(error);
   }
 
 }
@@ -602,8 +689,7 @@ function resetExtension() {
       utils.showModalNotification('Extension Reset', 'Extension has been reset successfully.', true);
     });
   } catch (error) {
-    console.error(error);
-    utils.showModalNotification('Error', error.message);
+    utils.handleError(error);
   }
 }
 
@@ -626,11 +712,11 @@ async function getConnection() {
     if (utils.isEmpty(connection)) {
       // Clears the form fields if the connection object is empty (e.g., new connection)
       clearConnectionFields();
-      setValue('connectionId', this.id);
+      utils.setValue('connectionId', this.id);
       return;
     }
 
-    const encryptionKey = await getEncryptionKey();
+    const encryptionKey = await crypt.getEncryptionKey();
     if (utils.isEmpty(encryptionKey)) {
       return;
     }
@@ -639,32 +725,37 @@ async function getConnection() {
     connection = connection[this.id];
 
     if (connection.encrypted) {
-      await decryptString(connection.password, connection.iv, encryptionKey).then((decryptedData) => {
+      await crypt.decryptString(connection.password, connection.iv, encryptionKey).then((decryptedData) => {
         connection.password = decryptedData;
       });
     }
 
     // Populates the form fields with the retrieved connection details
-    setValue('connectionId', connection.id);
-    setValue('connectionName', connection.connectionName);
-    setValue('hostName', connection.hostName);
-    setValue('smfHost', connection.smfHost);
-    setValue('msgVpn', connection.msgVpn);
-    setValue('msgVpnUrl', connection.msgVpnUrl);
-    setValue('userName', connection.userName);
-    setValue('password', connection.password);
-    setChecked('showUserProps', connection.showUserProps);
-    setChecked('showMsgPayload', connection.showMsgPayload);
+    utils.setValue('connectionId', connection.id);
+    utils.setValue('connectionName', connection.connectionName);
+    utils.setValue('hostName', connection.hostName);
+    utils.setValue('smfHost', connection.smfHost);
+    utils.setValue('msgVpn', connection.msgVpn);
+    utils.setValue('msgVpnUrl', connection.msgVpnUrl);
+    utils.setValue('userName', connection.userName);
+    utils.setValue('password', connection.password);
+    utils.setChecked('overrideSmfHost', connection.overrideSmfHost);
+    utils.setChecked('overrideMsgVpnUrl', connection.overrideMsgVpnUrl);
+    utils.setChecked('showUserProps', connection.showUserProps);
+    utils.setChecked('showMsgPayload', connection.showMsgPayload);
 
     document.getElementById('save').textContent = 'Save';
     document.getElementById('save').style.backgroundColor = '#009dff';
+
+    // Update the read-only state of the input fields based on the override checkboxes
+    updateReadOnlyStateForSmfHostInputElement();
+    updateReadOnlyStateForMsgVpnUrlInputElement();
 
     // Validates the mandatory fields in the connection form - adding red required asterisks if any are missing
     validateMandatoryConnectionFieldValues();
 
   } catch (error) {
-    console.error(error);
-    utils.showModalNotification('Error', error.message);
+    utils.handleError(error);
   }
 }
 
@@ -674,23 +765,24 @@ async function getConnection() {
 function clearConnectionFields() {
   try {
     // Clear the values of the input fields
-    setValue('connectionId', '');
-    setValue('connectionName', '');
-    setValue('userName', '');
-    setValue('password', '');
-    setValue('msgVpn', '');
-    setValue('hostName', '');
-    setValue('msgVpnUrl', 'https://{{host_name}}.messaging.solace.cloud:943');
-    setValue('smfHost', 'wss://{{host_name}}.messaging.solace.cloud:443');
-    setChecked('showUserProps', false);
-    setChecked('showMsgPayload', false);
+    utils.setValue('connectionId', '');
+    utils.setValue('connectionName', '');
+    utils.setValue('userName', '');
+    utils.setValue('password', '');
+    utils.setValue('msgVpn', '');
+    utils.setValue('hostName', '');
+    utils.setValue('msgVpnUrl', 'https://{{host_name}}.messaging.solace.cloud:943');
+    utils.setValue('smfHost', 'wss://{{host_name}}.messaging.solace.cloud:443');
+    utils.setChecked('overrideMsgVpnUrl', false);
+    utils.setChecked('overrideSmfHost', false);
+    utils.setChecked('showUserProps', false);
+    utils.setChecked('showMsgPayload', false);
 
 
     validateMandatoryConnectionFieldValues();
 
   } catch (error) {
-    console.error(error);
-    utils.showModalNotification('Error', error.message);
+    utils.handleError(error);
   }
 }
 
@@ -746,33 +838,40 @@ async function initSelectedConnection(connections) {
   }
 
   // Validate the encryption key
-  const encryptionKey = await getEncryptionKey();
+  const encryptionKey = await crypt.getEncryptionKey();
   if (utils.isEmpty(encryptionKey)) {
     return;
   }
 
   if (selectedConnection.encrypted) {
     try {
-      await decryptString(selectedConnection.password, selectedConnection.iv, encryptionKey).then((decryptedData) => {
+      await crypt.decryptString(selectedConnection.password, selectedConnection.iv, encryptionKey).then((decryptedData) => {
         selectedConnection.password = decryptedData;
       });
     } catch (error) {
-      setEncryptionKey('');
+      crypt.setEncryptionKey('');
       throw error;
     }
   }
 
   // Populate the input fields with the values of the activeated connection
-  setValue('connectionId', selectedConnection.id);
-  setValue('connectionName', selectedConnection.connectionName);
-  setValue('hostName', selectedConnection.hostName);
-  setValue('smfHost', selectedConnection.smfHost);
-  setValue('msgVpn', selectedConnection.msgVpn);
-  setValue('msgVpnUrl', selectedConnection.msgVpnUrl);
-  setValue('userName', selectedConnection.userName);
-  setValue('password', selectedConnection.password);
-  setChecked('showUserProps', selectedConnection.showUserProps);
-  setChecked('showMsgPayload', selectedConnection.showMsgPayload);
+  utils.setValue('connectionId', selectedConnection.id);
+  utils.setValue('connectionName', selectedConnection.connectionName);
+  utils.setValue('hostName', selectedConnection.hostName);
+  utils.setValue('smfHost', selectedConnection.smfHost);
+  utils.setValue('msgVpn', selectedConnection.msgVpn);
+  utils.setValue('msgVpnUrl', selectedConnection.msgVpnUrl);
+  utils.setValue('userName', selectedConnection.userName);
+  utils.setValue('password', selectedConnection.password);
+  utils.setChecked('overrideSmfHost', selectedConnection.overrideSmfHost);
+  utils.setChecked('overrideMsgVpnUrl', selectedConnection.overrideMsgVpnUrl);
+  utils.setChecked('showUserProps', selectedConnection.showUserProps);
+  utils.setChecked('showMsgPayload', selectedConnection.showMsgPayload);
+
+
+  // Update the read-only state of the input fields based on the override checkboxes
+  updateReadOnlyStateForSmfHostInputElement();
+  updateReadOnlyStateForMsgVpnUrlInputElement();
 
   // Validate the connection field values
   validateMandatoryConnectionFieldValues();
@@ -797,14 +896,14 @@ function validateMandatoryConnectionFieldValues() {
   document.querySelectorAll('.required-asterisk').forEach(el => el.remove());
 
   const connectionFieldValues = {
-    id: getValue('connectionId'),
-    connectionName: getValue('connectionName'),
-    hostName: getValue('hostName'),
-    smfHost: getValue('smfHost'),
-    msgVpn: getValue('msgVpn'),
-    msgVpnUrl: getValue('msgVpnUrl'),
-    userName: getValue('userName'),
-    password: getValue('password')
+    id: utils.getValue('connectionId'),
+    connectionName: utils.getValue('connectionName'),
+    hostName: utils.getValue('hostName'),
+    smfHost: utils.getValue('smfHost'),
+    msgVpn: utils.getValue('msgVpn'),
+    msgVpnUrl: utils.getValue('msgVpnUrl'),
+    userName: utils.getValue('userName'),
+    password: utils.getValue('password')
   };
 
   const missingValues = Object.entries(connectionFieldValues).filter(([key, value]) => value === '').map(([key]) => key);
@@ -836,19 +935,19 @@ async function reencryptConnections(newEncryptionKey) {
   if (utils.isEmpty(connections)) {
     return;
   }
-  const encryptionKey = await getEncryptionKey();
+  const encryptionKey = await crypt.getEncryptionKey();
   for (const connectionId in connections) {
     const connection = connections[connectionId];
     if (connection.encrypted) {
       try {
-        await decryptString(connection.password, connection.iv, encryptionKey).then((decryptedData) => {
+        await crypt.decryptString(connection.password, connection.iv, encryptionKey).then((decryptedData) => {
           connection.password = decryptedData;
         });
       } catch (error) {
-        setEncryptionKey('');
+        crypt.setEncryptionKey('');
         throw error;
       }
-      await encryptString(connection.password, newEncryptionKey).then((encryptedData) => {
+      await crypt.encryptString(connection.password, newEncryptionKey).then((encryptedData) => {
         connection.password = encryptedData.encryptedString;
         connection.iv = encryptedData.iv;
       });
@@ -856,100 +955,4 @@ async function reencryptConnections(newEncryptionKey) {
   }
   await chrome.storage.local.set(connections);
   utils.showToastNotification('Connections re-encrypted successfully!', 'success', 7000);
-}
-
-/**
- * Validates the Message VPN URL.
- * 
- * @param {string} msgVpnUrl - The Message VPN URL to validate.
- * @returns {boolean} - Returns true if the URL is valid, false otherwise.
- */
-function isValidMsgVpnUrl(msgVpnUrl) {
-  const regex = /^https:\/\/.*\.messaging\.solace\.cloud:943\/?$/;
-  return regex.test(msgVpnUrl);
-}
-
-/**
- * Validates if the encryption key meets the required criteria.
- * 
- * @param {string} key - The encryption key to validate.
- * @returns {boolean} - Returns true if the key is valid, false otherwise.
- */
-function isValidEncryptionKey(key) {
-  const minLength = 8;
-  const hasNumber = /\d/;
-  const hasSymbol = /[!@#$%^&*(),.?":{}|<>]/;
-  const hasCapitalLetter = /[A-Z]/;
-
-  return key.length >= minLength && hasNumber.test(key) && hasSymbol.test(key) && hasCapitalLetter.test(key);
-}
-
-/**
- * Validates the Solace Message Router Host protocol.
- * 
- * @param {string} smfHost - The Solace Message Router Host to validate.
- * @returns {boolean} - Returns true if the protocol is valid, false otherwise.
- */
-function isValidSmfHostProtocol(smfHost) {
-  const regex = /^(ws|wss|http|https):\/\/.*/;
-  return regex.test(smfHost);
-}
-
-/**
- * Retrieves the encryption key from session storage.
- * 
- * @returns {string} The encryption key stored in session storage.
- */
-async function getEncryptionKey() {
-  const encryptionKey = await chrome.storage.session.get('encryptionKey');
-  return encryptionKey.encryptionKey;
-}
-
-/**
- * Sets the encryption key in session storage.
- * 
- * @param {string} encryptionKey - The encryption key to store in session storage.
- */
-async function setEncryptionKey(encryptionKey) {
-  chrome.storage.session.set({ 'encryptionKey': encryptionKey });
-}
-
-/**
- * Retrieves the value of a DOM element by its ID.
- * 
- * @param {string} id - The ID of the DOM element.
- * @returns {string} The value of the DOM element.
- */
-function getValue(id) {
-  return document.getElementById(id).value;
-}
-
-/**
-* Sets the value of a DOM element by its ID.
-* 
-* @param {string} id - The ID of the DOM element.
-* @param {string} value - The value to set for the DOM element. Defaults to an empty string if not provided.
-*/
-function setValue(id, value) {
-  document.getElementById(id).value = value || '';
-}
-
-/**
-* Retrieves the checked state of a checkbox DOM element by its ID.
-* 
-* @param {string} id - The ID of the checkbox DOM element.
-* @returns {boolean} The checked state of the checkbox.
-*/
-function getChecked(id) {
-  return document.getElementById(id).checked;
-}
-
-/**
-* Sets the checked state of a checkbox DOM element by its ID.
-* 
-* @param {string} id - The ID of the checkbox DOM element.
-* @param {boolean} value - The checked state to set for the checkbox. Defaults to false if not provided.
-*/
-function setChecked(id, value) {
-  document.getElementById(id).checked = value || false;
 }
