@@ -5,11 +5,7 @@
   "manifest_version": 3,
   "permissions": [
     "storage",
-    "activeTab",
-    "contextMenus",
-    "tabs",
-    "scripting",
-    "webNavigation"
+    "tabs"
   ],
   "host_permissions": [
     "https://*.messaging.solace.cloud:943/*"

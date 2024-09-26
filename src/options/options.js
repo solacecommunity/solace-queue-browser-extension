@@ -27,6 +27,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Info Box Event Listeners
     addInfoBoxEventListeners();
 
+    // Toggle the text input placeholder on and off when the input field is focused or blurred
+    toggleInputPlaceholder();
+
 
     // Add event listeners to the 'Save', 'New Connection' and 'Delete buttons
     document.getElementById('delete').addEventListener('click', deleteOption);
@@ -50,6 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       importFile(file);
     });
 
+
     // // Tests the connection when the 'Test Connection' button is clicked
     // document.getElementById('testConnection').addEventListener('click', testConnection);
 
@@ -70,6 +74,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // DOM Functions
 
+/**
+ * Toggle the text input placeholder on and off when the input field is focused or blurred.
+ */
+function toggleInputPlaceholder() {
+  const inputElements = document.querySelectorAll('input');
+
+  inputElements.forEach(input => {
+    if (!input.readOnly) { // Skip read-only inputs
+      input.addEventListener('focus', () => {
+        input.dataset.placeholder = input.placeholder;
+        input.placeholder = '';
+      });
+  
+      input.addEventListener('blur', () => {
+        if (input.value === '') {
+          input.placeholder = input.dataset.placeholder;
+        }
+      });
+    }
+  });
+}
 
 /**
  * Adds event listeners to the 'mouseover' and 'mouseout' events for the 
