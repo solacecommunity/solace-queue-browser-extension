@@ -1,7 +1,7 @@
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
 
 # Solace-browser-extension
-View the payload of a message from the console inline
+View the message content of a queued message directly on the Messages Queued page.
 
 ## Overview
 This extension was built to prove that the payload of messages can be viewed inline. If you want to add new features or make improvements, feel free to add a pull request!
