@@ -439,36 +439,30 @@ function testConnection() {
     });
   } catch (error) {
     console.error(error);
-    // utils.showModalNotification(error.name, error.message);
     utils.showToastNotification(error.message, 'error', 7000);
   }
   // define session event listeners
   session.on(solace.SessionEventCode.UP_NOTICE, function (sessionEvent) {
     console.log('=== Successfully connected and ready to view messages. ===');
-    // utils.showModalNotification('Success', 'Successfully connected and ready to view messages.', true);
     utils.showToastNotification('Successfully connected and ready to view messages.', 'success', 7000);
   });
   session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, function (sessionEvent) {
     switch (sessionEvent.errorSubcode) {
       case solace.ErrorSubcode.MESSAGE_VPN_NOT_ALLOWED:
         console.error(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-        // utils.showModalNotification(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist`);
         utils.showToastNotification(`The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
       case solace.ErrorSubcode.LOGIN_FAILURE:
         console.error(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-        // utils.showModalNotification(sessionEvent.infoStr, `The username or password is incorrect.`);
         utils.showToastNotification(`The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
       case solace.ErrorSubcode.CLIENT_ACL_DENIED:
         console.error(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-        // utils.showModalNotification(sessionEvent.infoStr, `The username or password is incorrect.`);
         utils.showToastNotification(`Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
       default:
-        console.error(sessionEvent.infoStr, `Check correct parameter values and connectivity. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-        // utils.showModalNotification(sessionEvent.infoStr, `Check correct parameter values and connectivity!`);
-        utils.showToastNotification(`Check correct parameter values and connectivity | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
+        console.error('Error', `${sessionEvent.message} | Solace Error Code: ${sessionEvent.errorSubcode}`);
+        utils.showToastNotification(`${sessionEvent.message} | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
     }
   });
