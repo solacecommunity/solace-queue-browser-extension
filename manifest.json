@@ -1,7 +1,7 @@
 {
-  "name": "Emixa Solace message view Extension",
+  "name": "Solace Queued Message Viewer",
   "description": "Extension to browse solace message queues and inspect the payload.",
-  "version": "2.2.1",
+  "version": "2.2.3",
   "manifest_version": 3,
   "permissions": [
     "storage",

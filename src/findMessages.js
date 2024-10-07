@@ -123,8 +123,8 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                     sendErrorToPage(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
                     break;
                 default:
-                    console.error(sessionEvent.infoStr, `Check correct parameter values and connectivity. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-                    sendErrorToPage(sessionEvent.infoStr, `Check correct parameter values and connectivity. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    console.error(`${sessionEvent.message}. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    sendErrorToPage('Error', `${sessionEvent.message}. | Solace Error Code: ${sessionEvent.errorSubcode}`);
                     break;
             }
         });
