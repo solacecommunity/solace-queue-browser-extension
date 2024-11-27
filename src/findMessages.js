@@ -48,24 +48,21 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             });
         });
 
-        // Validate URL
-        if (!isValidMsgVpnUrl(url)) {
-            sendErrorToPage('Invalid URL', 'The current page is not a valid Solace Message VPN URL.');
-            return;
-        }
-
         // Get domain, port and protocol from URL using regex
-        const domain = url.match(/^https:\/\/(.*).messaging.solace.cloud:943/)[0];
-
+        const domainMatch = url.match(/^https:\/\/(.*).messaging.solace.cloud:\d+|^http:\/\/localhost:\d+/);
+        const domain = domainMatch[0];
+        
         // Find active connection
         let activeConnection = null;
         const connections = await chrome.storage.local.get();
         Object.entries(connections).forEach(([connectionId, connection]) => {
             // Normalize URLs by removing trailing slashes
-            const normalizedDomain = domain.replace(/\/$/, '');
             const normalizedConnectionUrl = connection.msgVpnUrl.replace(/\/$/, '');
 
-            if (normalizedConnectionUrl === normalizedDomain) {
+            console.log(`Domain: ${domain}`);
+            console.log(`Normalized Connection URL: ${normalizedConnectionUrl}`);
+
+            if (normalizedConnectionUrl === domain) {
                 activeConnection = connection;
                 return;
             }
@@ -433,15 +430,4 @@ async function generateSHA256Key(strKey) {
         ["encrypt", "decrypt"]
     );
     return key;
-}
-
-/**
- * Validates the Message VPN URL.
- * 
- * @param {string} msgVpnUrl - The Message VPN URL to validate.
- * @returns {boolean} - Returns true if the URL is valid, false otherwise.
- */
-function isValidMsgVpnUrl(msgVpnUrl) {
-    const regex = /^https:\/\/.*\.messaging\.solace\.cloud:943\/.*$/;
-    return regex.test(msgVpnUrl);
 }

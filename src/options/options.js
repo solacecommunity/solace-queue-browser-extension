@@ -86,7 +86,7 @@ function toggleInputPlaceholder() {
         input.dataset.placeholder = input.placeholder;
         input.placeholder = '';
       });
-  
+
       input.addEventListener('blur', () => {
         if (input.value === '') {
           input.placeholder = input.dataset.placeholder;
@@ -280,7 +280,7 @@ async function saveOption() {
 
     // Validate Message VPN URL
     if (!utils.isValidMsgVpnUrl(currentConnection.msgVpnUrl)) {
-      utils.showModalNotification('Invalid URL', 'For the Message VPN URL filed, please use a URL matching https://{{your_domain}}.messaging.solace.cloud:943');
+      utils.showModalNotification('Invalid URL', 'For the Message VPN URL filed, please use a URL matching https://{{your_domain}}.messaging.solace.cloud or http://localhost:{{your_port}}/');
       return;
     }
 
@@ -797,6 +797,8 @@ function clearConnectionFields() {
     utils.setChecked('showUserProps', false);
     utils.setChecked('showMsgPayload', false);
 
+    updateReadOnlyStateForSmfHostInputElement();
+    updateReadOnlyStateForMsgVpnUrlInputElement();
 
     validateMandatoryConnectionFieldValues();
 
@@ -922,10 +924,21 @@ function validateMandatoryConnectionFieldValues() {
     msgVpn: utils.getValue('msgVpn'),
     msgVpnUrl: utils.getValue('msgVpnUrl'),
     userName: utils.getValue('userName'),
-    password: utils.getValue('password')
+    password: utils.getValue('password'),
+    overrideMsgVpnUrl: utils.getChecked('overrideMsgVpnUrl'),
+    overrideSmfHost: utils.getChecked('overrideSmfHost')
   };
 
+  // Gather the keys of the fields with missing values
   const missingValues = Object.entries(connectionFieldValues).filter(([key, value]) => value === '').map(([key]) => key);
+
+  // Skip adding asterisk to hostName if overrideSmfHost and overrideMsgVpnUrl are checked
+  if (connectionFieldValues.overrideSmfHost && connectionFieldValues.overrideMsgVpnUrl) {
+    const index = missingValues.indexOf('hostName');
+    if (index > -1) {
+      missingValues.splice(index, 1);
+    }
+  }
 
   // If there are missing values, add visual indicators (red asterisks) next to the corresponding form fields
   if (missingValues.length > 0) {
