@@ -7,7 +7,7 @@
  * @returns {boolean} - Returns true if the URL is valid, false otherwise.
  */
 export function isValidMsgVpnUrl(msgVpnUrl) {
-    const regex = /^https:\/\/.*\.messaging\.solace\.cloud:943\/?$/;
+    const regex = /^https:\/\/.*\.messaging\.solace\.cloud:\d+\/?$|^http:\/\/localhost:\d+\/?$/;
     return regex.test(msgVpnUrl);
 }
 

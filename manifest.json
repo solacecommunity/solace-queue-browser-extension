@@ -1,14 +1,15 @@
 {
   "name": "Solace Queued Message Viewer",
   "description": "Extension to browse solace message queues and inspect the payload.",
-  "version": "2.2.3",
+  "version": "2.3.3",
   "manifest_version": 3,
   "permissions": [
     "storage",
     "tabs"
   ],
   "host_permissions": [
-    "https://*.messaging.solace.cloud:943/*"
+    "https://*.messaging.solace.cloud:*/",
+    "http://localhost:*/"
   ],
   "background": {
     "service_worker": "worker_wrapper.js"
@@ -20,7 +21,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*.messaging.solace.cloud:943/*"
+        "https://*.messaging.solace.cloud:*/",
+        "http://localhost:*/"
       ],
       "js": [
         "src/inject/inject.js"
