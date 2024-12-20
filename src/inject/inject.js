@@ -268,7 +268,7 @@ function createPayloadContainer(expandedDiv, messageId, userProps, queuedMsg) {
 					<span class="attr-label au-target" id="queue-msg-title-${messageId}">Queue Message</span>
 				</div>
 				<div class="flow-row">
-					<pre id="${queueMsgPreId}" style="max-width:95%; overflow:auto; white-space:pre-wrap; word-break:break-all;"></pre>
+					<pre id="${queueMsgPreId}" style="max-height:500px; max-width:95%; overflow:auto; white-space:pre-wrap; word-break:break-all;"></pre>
 				</div>
 				<div class="flow-row">
 					<button id="${queueMsgCpyBtnId}" class="au-target" style="margin-right:10px;">Copy Message to Clipboard</button>
@@ -299,7 +299,7 @@ function createPayloadContainer(expandedDiv, messageId, userProps, queuedMsg) {
 					<span class="attr-label au-target" id="user-prop-title-${messageId}">User Properties</span>
 				</div>
 				<div class="flow-row">
-					<pre id="${userPropPreId}" class="au-target" style="max-width:95%; overflow:auto; white-space:pre-wrap; word-break:break-all;">${JSON.stringify(userProps, null, "\t")}</pre>
+					<pre id="${userPropPreId}" style="max-height:500px;  max-width:95%; overflow:auto; white-space:pre-wrap; word-break:break-all;">${JSON.stringify(userProps, null, "\t")}</pre>
 				</div>
 				<div class="flow-row">
 					<button id="${userPropCpyBtnId}" class="au-target" style="margin-right:10px;">Copy Properties to Clipboard</button>
