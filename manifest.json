@@ -1,14 +1,15 @@
 {
-  "name": "Solace Queued Message Viewer",
-  "description": "Extension to browse solace message queues and inspect the payload.",
-  "version": "2.2.3",
+  "name": "Solace Queue Message Viewer",
+  "description": "View the content of messages on a queue directly in the Solace Event Broker UI.",
+  "version": "2.4.0",
   "manifest_version": 3,
   "permissions": [
     "storage",
     "tabs"
   ],
   "host_permissions": [
-    "https://*.messaging.solace.cloud:943/*"
+    "https://*.messaging.solace.cloud:*/",
+    "http://localhost:*/"
   ],
   "background": {
     "service_worker": "worker_wrapper.js"
@@ -20,7 +21,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*.messaging.solace.cloud:943/*"
+        "https://*.messaging.solace.cloud:*/",
+        "http://localhost:*/"
       ],
       "js": [
         "src/inject/inject.js"
@@ -28,10 +30,10 @@
     }
   ],
   "icons": {
-    "16": "src/img/emixa-logo.png"
+    "16": "src/img/solace-favicon-bigdot.png"
   },
   "action": {
-    "default_icon": "src/img/emixa-logo.png",
+    "default_icon": "src/img/solace-favicon-bigdot.png",
     "default_title": "Open Options"
   }
 }
