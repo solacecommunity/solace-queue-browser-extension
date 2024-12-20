@@ -91,9 +91,9 @@ input:hover {
 
 #connections {
   padding: 20px;
-  height: 600px;
+  max-height: 600px;
   /* Adjust the height as needed */
-  overflow-y: scroll;
+  overflow: auto;
 }
 
 /* Override checkbox styling */

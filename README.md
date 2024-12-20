@@ -1,7 +1,7 @@
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
 
-# Solace-browser-extension
-View the message content of a queued message directly on the Messages Queued page.
+# Solace Queue Message Viewer
+View the content of messages on a queue directly in the Solace Event Broker UI.
 
 ## Overview
 This extension was built to prove that the payload of messages can be viewed inline. If you want to add new features or make improvements, feel free to add a pull request!
@@ -16,7 +16,7 @@ This extension was built to prove that the payload of messages can be viewed inl
 
 ### Getting Connected
 
-1. Click on the extensions icon in the top right corner and then click the newly installed **Emixa Solace message view Extension**.
+1. Click on the extensions icon in the top right corner and then click the newly installed **Solace Queue Message Viewer**.
    * A new page should open prompting for an encryption key.
    * This key will be used to securely encrypt the connections you save locally.
 
