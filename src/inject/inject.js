@@ -185,25 +185,6 @@ function findElementToAppendPayloadContainer(dataRow) {
 	@param {object} metadataPropList - The metadata properties of the message.
 */
 function createMetaDataContainer(expandedDiv, messageId, metadataPropList) {
-	// const metaDataContainer = `
-	// 	<div id="application-properties-container-${messageId}" style="display:flex; justify-content:space-between; flex-wrap:nowrap; margin:10px 0 20px 0;">
-	// 		<div style="flex: 1;">
-	// 			<label id="app-msg-id-lbl-${messageId}" style="margin-right:5px;">Application Message ID:</label>
-	// 			<label id="app-msg-id-lbl-value-${messageId}" style="color:black;">${metadataPropList.appMsgId}</label>
-	// 		</div>
-	// 		<div style="flex: 1;">
-	// 			<label id="dest-name-id-lbl-${messageId}" style="margin-right:5px;">Destination Name:</label>
-	// 			<label id="dest-name-id-lbl-value-${messageId}" style="color:black;">${metadataPropList.destinationName}</label>
-	// 		</div>
-	// 		<div style="flex: 1;">
-	// 			<label id="dest-type-id-lbl-${messageId}" style="margin-right:5px;">Destination Type:</label>
-	// 			<label id="dest-type-id-lbl-value-${messageId}" style="color:black;">${metadataPropList.destinationType}</label>
-	// 		</div>
-	// 	</div>
-	// 	<hr id="line-${messageId}">
-	// `;
-
-
 	let metaDataContainer = `
 		<div id="queue-msg-conatiner-${messageId}" class="expanded-detail expanded-content">
 			<div class="flow-column">
@@ -243,25 +224,12 @@ function createPayloadContainer(expandedDiv, messageId, userProps, queuedMsg) {
 	let queueMsgCpyBtnId = `queue-msg-copy-btn-${messageId}`;
 	let queueMsgCpyLblId = `queue-msg-copy-lbl-${messageId}`;
 
-	// let messageContainer = `
-	// 	<div id="queue-extension-container-${messageId}" style="display:flex; justify-content:space-between; flex-wrap:nowrap; margin:10px 0 20px 0;">
-	// `;
-
 	let messageContainer = `
 		<div id="queue-extension-container-${messageId}" class="expanded-detail expanded-content">
 	`;
 
 	// Append the queued message container if queuedMsg is not empty
 	if (!isEmpty(queuedMsg)) {
-		// let queuedMsg = `
-		// 	<div queue-msg-conatiner-${messageId} style="flex: 1">
-		// 		<label id="queue-msg-title-${messageId}">Queue Message</label>
-		// 		<pre id="${queueMsgPreId}"></pre>
-		// 		<button id="${queueMsgCpyBtnId}" style="margin-right:10px;">Copy Message to Clipboard</button>
-		// 		<label id="${queueMsgCpyLblId}" style="display:none;">Message Copied to Clipboard</label>
-		// 	</div>
-		// `;
-
 		let queuedMsg = `
 			<div id="queue-msg-conatiner-${messageId}" class="flow-column">
 				<div class="flow-row">
@@ -284,15 +252,6 @@ function createPayloadContainer(expandedDiv, messageId, userProps, queuedMsg) {
 	let userPropCpyBtnId = `user-prop-copy-btn-${messageId}`;
 	let userPropCpyLblId = `user-prop-copy-lbl-${messageId}`;
 	if (!isEmpty(userProps)) {
-		// let userPropContainer = `
-		// 	<div id="user-prop-conatiner-${messageId}" style="flex: 1">
-		// 		<label id="user-prop-title-${messageId}">User Properties</label>
-		// 		<pre id="${userPropPreId}">${JSON.stringify(userProps, null, "\t")}</pre>
-		// 		<button id="${userPropCpyBtnId}" style="margin-right:10px;">Copy Properties to Clipboard</button>
-		// 		<label id="${userPropCpyLblId}" style="display:none;">Properties Copied to Clipboard</label>
-		// 	</div>
-		// `;
-
 		let userPropContainer = `
 			<div id="user-prop-conatiner-${messageId}" class="flow-column">
 				<div class="flow-row">
