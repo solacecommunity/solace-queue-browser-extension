@@ -1,15 +1,15 @@
 {
   "name": "Solace Queue Message Viewer",
   "description": "View the content of messages on a queue directly in the Solace Event Broker UI.",
-  "version": "2.4.0",
+  "version": "2.3.0",
   "manifest_version": 3,
   "permissions": [
     "storage",
     "tabs"
   ],
   "host_permissions": [
-    "https://*.messaging.solace.cloud:*/",
-    "http://localhost:*/"
+    "http://*/*",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "worker_wrapper.js"
@@ -21,8 +21,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*.messaging.solace.cloud:*/",
-        "http://localhost:*/"
+        "http://*/*",
+        "https://*/*"
       ],
       "js": [
         "src/inject/inject.js"
