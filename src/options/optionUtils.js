@@ -6,7 +6,7 @@
  * @param {string} msgVpnUrl - The Message VPN URL to validate.
  * @returns {boolean} - Returns true if the URL is valid, false otherwise.
  */
-function isValidMsgVpnUrl(msgVpnUrl) {
+export function isValidMsgVpnUrl(msgVpnUrl) {
     const regex = /^https:\/\/.*\.messaging\.solace\.cloud:\d+\/?$|^http:\/\/localhost:\d+\/?$/;
     return regex.test(msgVpnUrl);
 }
@@ -17,7 +17,7 @@ function isValidMsgVpnUrl(msgVpnUrl) {
  * @param {string} key - The encryption key to validate.
  * @returns {boolean} - Returns true if the key is valid, false otherwise.
  */
-function isValidEncryptionKey(key) {
+export function isValidEncryptionKey(key) {
     const minLength = 8;
     const hasNumber = /\d/;
     const hasSymbol = /[!@#$%^&*(),.?":{}|<>]/;
@@ -32,7 +32,7 @@ function isValidEncryptionKey(key) {
  * @param {string} smfHost - The Solace Message Router Host to validate.
  * @returns {boolean} - Returns true if the protocol is valid, false otherwise.
  */
-function isValidSmfHostProtocol(smfHost) {
+export function isValidSmfHostProtocol(smfHost) {
     const regex = /^(ws|wss|http|https):\/\/.*/;
     return regex.test(smfHost);
 }
@@ -43,7 +43,7 @@ function isValidSmfHostProtocol(smfHost) {
  * @param {string} id - The ID of the DOM element.
  * @returns {string} The value of the DOM element.
  */
-function getValue(id) {
+export function getValue(id) {
     return document.getElementById(id).value;
 }
 
@@ -53,7 +53,7 @@ function getValue(id) {
 * @param {string} id - The ID of the DOM element.
 * @param {string} value - The value to set for the DOM element. Defaults to an empty string if not provided.
 */
-function setValue(id, value) {
+export function setValue(id, value) {
     document.getElementById(id).value = value || '';
 }
 
@@ -63,7 +63,7 @@ function setValue(id, value) {
 * @param {string} id - The ID of the checkbox DOM element.
 * @returns {boolean} The checked state of the checkbox.
 */
-function getChecked(id) {
+export function getChecked(id) {
     return document.getElementById(id).checked;
 }
 
@@ -73,7 +73,7 @@ function getChecked(id) {
 * @param {string} id - The ID of the checkbox DOM element.
 * @param {boolean} value - The checked state to set for the checkbox. Defaults to false if not provided.
 */
-function setChecked(id, value) {
+export function setChecked(id, value) {
     document.getElementById(id).checked = value || false;
 }
 
@@ -82,7 +82,7 @@ function setChecked(id, value) {
  * 
  * @param {Error} error - The error object to handle.
  */
-function handleError(error) {
+export function handleError(error) {
     console.error(error);
     utils.showModalNotification('Error', error.message);
 }
@@ -99,7 +99,7 @@ function handleError(error) {
  * @param {*} paramVar - The variable to check.
  * @returns {boolean} True if the variable is empty, false otherwise.
  */
-function isEmpty(paramVar) {
+export function isEmpty(paramVar) {
     var blEmpty = false;
     if (typeof paramVar != "boolean") {
         if (!paramVar) {
@@ -130,7 +130,7 @@ function isEmpty(paramVar) {
  * @param {string} message - The message to display in the toast.
  * @param {string} type - The type of the notification ("error", "warning", "success").
  */
-function showToastNotification(message, type = 'success', timeout = 3000) {
+export function showToastNotification(message, type = 'success', timeout = 3000) {
     const toast = document.createElement('div');
     // Calculate the vertical offset based on the number of existing toasts
     const existingToasts = document.querySelectorAll('.toast');
@@ -188,7 +188,7 @@ function showToastNotification(message, type = 'success', timeout = 3000) {
  * @param {string} message - The message to display in the modal notification.
  * @param {string} reload - Whether to reload the page after the modal is closed.
  */
-function showModalNotification(title, message, reload = false) {
+export function showModalNotification(title, message, reload = false) {
     // Create the modal backdrop
     const modal = document.createElement('div');
     modal.style.position = 'fixed';
@@ -268,7 +268,7 @@ function showModalNotification(title, message, reload = false) {
  * @param {boolean} cancelOption - Whether to include a cancel button in the modal.
  * @param {boolean} resetOption - Whether to include a reset button in the modal.
  */
-function displayEncryptionKeyInputWindow(title, message = '', cancelOption = false, resetOption = false) {
+export function displayEncryptionKeyInputWindow(title, message = '', cancelOption = false, resetOption = false) {
     // Create the modal backdrop
     const modal = document.createElement('div');
     modal.id = 'encryption-key-input-window';
@@ -442,7 +442,7 @@ function displayEncryptionKeyInputWindow(title, message = '', cancelOption = fal
     document.body.appendChild(modal);
 }
 
-function showResetConfirmationWindow() {
+export function showResetConfirmationWindow() {
     // Create the modal backdrop
     const modal = document.createElement('div');
     modal.id = 'reset-confirmation-window';

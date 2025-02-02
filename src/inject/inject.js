@@ -71,9 +71,7 @@ function requestEncryptionKey() {
 	const submitButton = document.getElementById('encryption-key-input-submit-button');
 	const inputBox = document.getElementById('encryption-key-input');
 
-	if (!submitButton || !inputBox) {
-		return;
-	}
+	if (!submitButton || !inputBox) { return; }
 
 	try {
 		// Handle the Encryption input window submit button click

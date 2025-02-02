@@ -1,7 +1,4 @@
-// MV3 only allows for a single script file to be imported in the service_worker
-//  to get around this we import the required scripts here.
-importScripts('src/lib/solclient.js', 'src/findmessages.js');
-
+importScripts('src/lib/solclient.js', 'src/lib/encryptionUtils.js', 'src/lib/utils.js', 'src/findmessages.js');
 
 // Open options page when the extension icon is clicked
 chrome.action.onClicked.addListener(() => {
@@ -30,15 +27,19 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
 // Once the user has entered the encryption key, get the queue from the page and process messages
 chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
     if (request.action === "encryptionKeyReceived") {
-        await chrome.storage.session.set({ 'encryptionKey': request.encryptionKey });
+        generateSHA256Hash(request.encryptionKey).then((key) => {
+            let keyString = arrayBufferToBase64(key);
+            setEncryptionKey(keyString);
+        });
+
         getQueueFromPageAndProcessMessages();
     }
 });
 
 // Execute the "findMsg" logic
 async function triggerFindMsg() {
-    const encryptionKey = await chrome.storage.session.get('encryptionKey');
-    if (isEmpty(encryptionKey) || isEmpty(encryptionKey.encryptionKey)) {
+    const encryptionKey = await getEncryptionKey();
+    if (isEmpty(encryptionKey)) {
         requestEncryptionKeyFromUser();
     } else {
         getQueueFromPageAndProcessMessages();

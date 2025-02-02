@@ -1,6 +1,6 @@
 
-import * as utils from '../lib/utils.js';
-import * as crypt from '../lib/encryptionUtils.js';
+import * as utils from './optionUtils.js';
+import * as crypt from './optionEncryptionUtils.js';
 
 // ########################################################################################
 
@@ -212,9 +212,7 @@ async function populateUI() {
 
     // Return if there are no connections saved in local storage
     let connections = await chrome.storage.local.get();
-    if (utils.isEmpty(connections)) {
-      return;
-    }
+    if (utils.isEmpty(connections)) { return; }
 
     await initSelectedConnection(connections);
     initConnectionsContainer(connections);
@@ -285,15 +283,16 @@ async function saveOption() {
     }
 
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) {
-      return;
-    }
+    if (utils.isEmpty(encryptionKey)) { return; }
 
     // Before saving the connection, test the connection to ensure it is valid
     testConnection();
 
+    // Decode base64 encryption key to array buffer
+    const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
+
     // Encrypt the password and store the encrypted string and IV
-    await crypt.encryptString(currentConnection.password, encryptionKey).then((encryptedData) => {
+    await crypt.encryptString(currentConnection.password, encryptionKeyArrayBuffer).then((encryptedData) => {
       currentConnection.password = encryptedData.encryptedString;
       currentConnection.iv = encryptedData.iv;
       currentConnection.encrypted = true;
@@ -509,9 +508,7 @@ function changeKey() {
   const submitButton = document.getElementById('encryption-key-input-submit-button');
   const inputBox = document.getElementById('encryption-key-input');
 
-  if (!submitButton || !inputBox) {
-    return;
-  }
+  if (!submitButton || !inputBox) { return; }
 
   // Handle the submit button click
   submitButton.addEventListener('click', async (event) => {
@@ -520,16 +517,14 @@ function changeKey() {
       const inputValue = inputBox.value;
       if (inputValue) {
         await reencryptConnections(inputValue);
-        await crypt.setEncryptionKey(inputValue);
         document.body.removeChild(encryptionKeyInputWindow);
         utils.showToastNotification('Encryption key saved successfully!', 'success', 7000);
       } else {
         utils.showModalNotification('Missing Key', 'No key has been entered. Please enter an encryption key');
       }
     } catch (error) {
-      crypt.setEncryptionKey('');
+      crypt.setEncryptionKey(''); // If an error occurs, clear the encryption key to prevent new key from being saved.
       document.body.removeChild(encryptionKeyInputWindow);
-
       utils.handleError(error);
     }
   });
@@ -549,9 +544,7 @@ function promptUserForEncryptionKey() {
   const resetButton = document.getElementById('reset-option-btn');
   const inputBox = document.getElementById('encryption-key-input');
 
-  if (!submitButton || !inputBox) {
-    return;
-  }
+  if (!submitButton || !inputBox) { return; }
 
   // Handle the submit button click
   submitButton.addEventListener('click', async (event) => {
@@ -566,7 +559,12 @@ function promptUserForEncryptionKey() {
       return;
     }
 
-    await crypt.setEncryptionKey(inputValue);
+    // Generate a SHA-256 hash of the encryption key and save it in session storage
+    const hashedKey = await crypt.generateSHA256Hash(inputValue);
+
+    const base64HashedKey = crypt.arrayBufferToBase64(hashedKey);
+    await crypt.setEncryptionKey(base64HashedKey);
+
     document.body.removeChild(encryptionKeyInputWindow);
     // At this point, we do not know if the encryption key is correct, so the UI should be reloaded.
     // populateUI() will load and decrypt the connections using the encryption key.
@@ -594,22 +592,24 @@ async function exportConnections() {
     const connections = await chrome.storage.local.get();
     // Validate the encryption key
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) {
-      return;
-    }
+    if (utils.isEmpty(encryptionKey)) { return; }
 
     for (const connectionId in connections) {
       const connection = connections[connectionId];
-
       connection.selected = false;
-      if (connection.encrypted) {
-        await crypt.decryptString(connection.password, connection.iv, encryptionKey).then((decryptedData) => {
-          connection.password = decryptedData;
-        });
-        connection.iv = null;
-        connection.encrypted = false;
-      }
+      connection.iv = null;
+      connection.encrypted = false;
+
+      if (!connection.encrypted) { continue; }
+
+      // Base64 decode the encryption key
+      const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
+
+      await crypt.decryptString(connection.password, connection.iv, encryptionKeyArrayBuffer).then((decryptedData) => {
+        connection.password = decryptedData;
+      });
     }
+
     const blob = new Blob([JSON.stringify(connections)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -646,9 +646,7 @@ async function importFile(file) {
 
   try {
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) {
-      return;
-    }
+    if (utils.isEmpty(encryptionKey)) { return; }
     const reader = new FileReader();
     reader.onload = async (e) => {
       const connections = JSON.parse(e.target.result);
@@ -661,13 +659,16 @@ async function importFile(file) {
       // Encrypt connection passwords
       for (const connectionId in connections) {
         const connection = connections[connectionId];
-        if (!connection.encrypted) {
-          await crypt.encryptString(connection.password, encryptionKey).then((encryptedData) => {
-            connection.password = encryptedData.encryptedString;
-            connection.iv = encryptedData.iv;
-            connection.encrypted = true;
-          });
-        }
+        if (!connection.encrypted) { continue; }
+
+        // Base64 decode the encryption key
+        const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
+
+        await crypt.encryptString(connection.password, encryptionKeyArrayBuffer).then((encryptedData) => {
+          connection.password = encryptedData.encryptedString;
+          connection.iv = encryptedData.iv;
+          connection.encrypted = true;
+        });
       }
 
       // Merge the imported connections with the existing connections
@@ -735,16 +736,18 @@ async function getConnection() {
       return;
     }
 
-    const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) {
-      return;
-    }
 
     // Extracts the connection details specific to the clicked connection ID
     connection = connection[this.id];
 
+    // Validate the encryption key
+    const encryptionKey = await crypt.getEncryptionKey();
+    if (utils.isEmpty(encryptionKey)) { return; }
     if (connection.encrypted) {
-      await crypt.decryptString(connection.password, connection.iv, encryptionKey).then((decryptedData) => {
+      // Decode base64 encryption key to array buffer
+      const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
+
+      await crypt.decryptString(connection.password, connection.iv, encryptionKeyArrayBuffer).then((decryptedData) => {
         connection.password = decryptedData;
       });
     }
@@ -854,25 +857,17 @@ async function initSelectedConnection(connections) {
     }
   });
 
-  if (utils.isEmpty(selectedConnection)) {
-    return;
-  }
+  if (utils.isEmpty(selectedConnection)) { return; }
 
   // Validate the encryption key
   const encryptionKey = await crypt.getEncryptionKey();
-  if (utils.isEmpty(encryptionKey)) {
-    return;
-  }
-
+  if (utils.isEmpty(encryptionKey)) { return; }
   if (selectedConnection.encrypted) {
-    try {
-      await crypt.decryptString(selectedConnection.password, selectedConnection.iv, encryptionKey).then((decryptedData) => {
-        selectedConnection.password = decryptedData;
-      });
-    } catch (error) {
-      crypt.setEncryptionKey('');
-      throw error;
-    }
+    // Decode base64 encryption key to array buffer
+    const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
+    await crypt.decryptString(selectedConnection.password, selectedConnection.iv, encryptionKeyArrayBuffer).then((decryptedData) => {
+      selectedConnection.password = decryptedData;
+    });
   }
 
   // Populate the input fields with the values of the activeated connection
@@ -964,27 +959,33 @@ function validateMandatoryConnectionFieldValues() {
  */
 async function reencryptConnections(newEncryptionKey) {
   const connections = await chrome.storage.local.get();
-  if (utils.isEmpty(connections)) {
-    return;
-  }
-  const encryptionKey = await crypt.getEncryptionKey();
+  if (utils.isEmpty(connections)) { return; }
+  // Generate a new SHA-256 hash for the new encryption key
+  // This is required as encryptString expects a SHA-256 hash key
+  const newEncryptionKeyHash = await crypt.generateSHA256Hash(newEncryptionKey);
+
+  // Retreive hashed encryption key from session storage
+  const base64HashKey = await crypt.getEncryptionKey();
+
+  // Decode the base64 hash key to an array buffer.
+  // This is required as decryptString expects an array buffer key.
+  const existingEncryptionKey = crypt.base64ToArrayBuffer(base64HashKey);
+
+  // Re-encrypt all connection passwords using the new encryption key
   for (const connectionId in connections) {
     const connection = connections[connectionId];
-    if (connection.encrypted) {
-      try {
-        await crypt.decryptString(connection.password, connection.iv, encryptionKey).then((decryptedData) => {
-          connection.password = decryptedData;
-        });
-      } catch (error) {
-        crypt.setEncryptionKey('');
-        throw error;
-      }
-      await crypt.encryptString(connection.password, newEncryptionKey).then((encryptedData) => {
-        connection.password = encryptedData.encryptedString;
-        connection.iv = encryptedData.iv;
-      });
-    }
+    if (!connection.encrypted) { continue; }
+    await crypt.decryptString(connection.password, connection.iv, existingEncryptionKey).then((decryptedData) => {
+      connection.password = decryptedData;
+    });
+    await crypt.encryptString(connection.password, newEncryptionKeyHash).then((encryptedData) => {
+      connection.password = encryptedData.encryptedString;
+      connection.iv = encryptedData.iv;
+    });
   }
+  // Encode the new encryption key hash to base64 and save it.
+  const base64KeyHash = crypt.arrayBufferToBase64(newEncryptionKeyHash);
+  await crypt.setEncryptionKey(base64KeyHash);
+
   await chrome.storage.local.set(connections);
-  utils.showToastNotification('Connections re-encrypted successfully!', 'success', 7000);
 }
