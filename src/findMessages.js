@@ -1,36 +1,65 @@
-/**
- * Displays a toast notification to the user requesting an encryption key.
- */
-async function requestEncryptionKeyFromUser() {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        if (tabs && tabs.length > 0) {
-            chrome.tabs.sendMessage(tabs[0].id, { action: "requestEncryptionKey" });
-        } else {
-            console.error("Could not find active tab to request encryption key.");
-        }
-    });
+import { getEncryptionKey, decryptString, base64ToArrayBuffer } from './lib/encryptionUtils.js';
+import { isEmpty } from './lib/sharedUtils.js';
+import './lib/solclient-full.js';
+
+// Check if the global was set up correctly ONCE at the start
+if (typeof self.solace === 'undefined' || typeof self.solace.SolclientFactory !== 'object') { // Note: SolclientFactory itself seems to be an object based on logs
+    console.error("findmessages.js: Global self.solace API object not found or incomplete!");
+    throw new Error("Solace API failed to initialize globally.");
+} else {
+    console.log("findmessages.js: Global self.solace API object seems available.");
 }
 
+
+
 /**
- * Queries the active browser tab, sends a message to extract the queue name from the page,
- * and then calls the queryMessagesFromQueue function with the extracted queue name.
+ * Sends a message to the content script telling it to request the key.
  */
-function getQueueFromPageAndProcessMessages() {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+export async function requestEncryptionKeyFromUser() {
+    try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tabs && tabs.length > 0) {
-            chrome.tabs.sendMessage(tabs[0].id, { action: "getQueueName" }, function (response) {
-                // Ensure response exists and has the queue name
-                if (response && response.queueNameOnPage) {
-                    queryMessagesFromQueue(response.queueNameOnPage);
-                } else {
-                    console.error("Did not receive queue name from content script.");
-                    sendErrorToPage("Error", "Could not get queue name from the page.");
-                }
-            });
+            await chrome.tabs.sendMessage(tabs[0].id, { action: "requestEncryptionKey" });
         } else {
-            console.error("Could not find active tab to get queue name.");
+            console.error("Could not find active tab to request encryption key.");
+            // Consider sending an error back to options page if triggered from there?
         }
-    });
+    } catch (error) {
+        console.error("Error sending requestEncryptionKey message:", error);
+    }
+}
+
+// Export triggerFindMsg IF its definition should live here
+export async function triggerFindMsg() {
+    const encryptionKey = await getEncryptionKey();
+    if (isEmpty(encryptionKey)) {
+       await requestEncryptionKeyFromUser();
+    } else {
+       await getQueueFromPageAndProcessMessages();
+    }
+}
+
+
+/**
+ * Gets queue name from content script and starts querying messages.
+ */
+export async function getQueueFromPageAndProcessMessages() {
+    try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tabs || tabs.length === 0) throw new Error("No active tab found.");
+        const tabId = tabs[0].id;
+
+        const response = await chrome.tabs.sendMessage(tabId, { action: "getQueueName" });
+
+        if (response && response.queueNameOnPage) {
+            await queryMessagesFromQueue(response.queueNameOnPage);
+        } else {
+            throw new Error("Did not receive queue name from content script or response was empty.");
+        }
+    } catch (error) {
+        console.error("Error in getQueueFromPageAndProcessMessages:", error);
+        sendErrorToPage("Error", `Could not get queue name or start processing: ${error.message}`);
+    }
 }
 
 /**
@@ -52,9 +81,9 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         }
 
         // Initialize Solace
-        const factoryProps = new solace.SolclientFactoryProperties();
-        factoryProps.profile = solace.SolclientFactoryProfiles.version10;
-        solace.SolclientFactory.init(factoryProps);
+        const factoryProps = new self.solace.SolclientFactoryProperties();
+        factoryProps.profile = self.solace.SolclientFactoryProfiles.version10;
+        self.solace.SolclientFactory.init(factoryProps);
 
         // Get page URL
         let url = await new Promise((resolve, reject) => {
@@ -100,7 +129,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         }
 
         if (!activeConnection) {
-            sendErrorToPage('No connection found', `No connection found matching the current page domain (${domain}). Please check the 'Message VPN URL' in the Options page.`);
+            sendErrorToPage('No connection found', `No connection found matching the current page domain (${pageOrigin}). Please check the 'Message VPN URL' in the Options page.`);
             return;
         }
 
@@ -220,6 +249,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
 
                 const appMsgId = message.getApplicationMessageId();
                 const destination = message.getDestination();
+                const messageId = message.getGuaranteedMessageId().toString();
 
                 let queuedMsg = null;
                 let userPropsList = {};
@@ -230,7 +260,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                     let userProps = message.getUserPropertyMap();
                     if (userProps) {
                         userProps.getKeys().forEach(key => {
-                            userPropsList[key] = userProps.getField(key).Tc; // getField returns a object with Rc and TC as keys. Tc key contains our property
+                            userPropsList[key] = userProps.getField(key).getValue();
                         });
                     }
                 }
@@ -238,7 +268,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                 metadataPropList['appMsgId'] = appMsgId || 'Not specified';
                 if (!isEmpty(destination)) {
                     metadataPropList['destinationName'] = destination.getName();
-                    metadataPropList['destinationType'] = destination.Rc ? destination.Rc : 'UNKNOWN'; // Use Rc if available, else default to 'UNKNOWN'
+                    metadataPropList['destinationType'] = destination.getType();
                 }
 
                 if (activeConnection.showMsgPayload) {
@@ -250,7 +280,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
 
                 // Send the message to the page
                 sendPayloadToPage({
-                    messageId: message.rc.low,
+                    messageId: messageId,
                     metadataPropList: metadataPropList,
                     userProps: userPropsList,
                     queuedMsg: queuedMsg
