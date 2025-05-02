@@ -1,47 +1,38 @@
-importScripts('src/lib/solclient.js', 'src/lib/encryptionUtils.js', 'src/lib/utils.js', 'src/findmessages.js');
+// import * as solaceModule from './src/lib/solclient.js';
+import { setEncryptionKey, generateSHA256Hash, arrayBufferToBase64 } from './src/lib/encryptionUtils.js';
+import { triggerFindMsg, getQueueFromPageAndProcessMessages } from './src/findMessages.js';
 
 // Open options page when the extension icon is clicked
 chrome.action.onClicked.addListener(() => {
     chrome.runtime.openOptionsPage();
 });
 
-// // Listen for URL changes
-// chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-//     if (changeInfo.status == 'complete') {
-//         const urlPattern = /^https:\/\/.*\.messaging\.solace\.cloud:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$|^http(s?):\/\/localhost:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$/;
-//         if (urlPattern.test(tab.url)) {
-//             console.log("URL matches pattern, sending message to content script to create the button");
-//             chrome.tabs.sendMessage(tabId, { action: "createFindMsgButton" });
-//         }
-//     }
-// });
+// Listener for messages from content scripts (or options page)
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    const handleMessage = async () => {
+        switch (request.action) {
+            case "triggerFindMsg":
+                console.log("Received triggerFindMsg");
+                await triggerFindMsg();
+                break;
 
-// Listen for messages from content scripts and trigger the beginning of the "findMsg" logic
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
-    if (request.action === "triggerFindMsg") {
-        triggerFindMsg();
-    }
+            case "encryptionKeyReceived":
+                console.log("Received encryptionKeyReceived");
+                try {
+                    const keyHash = await generateSHA256Hash(request.encryptionKey);
+                    const keyString = arrayBufferToBase64(keyHash);
+                    await setEncryptionKey(keyString);
+                    console.log("Encryption key set, proceeding to process messages.");
+                    await getQueueFromPageAndProcessMessages();
+                } catch (error) {
+                    console.error("Error processing encryption key:", error);
+                    // TODO: Maybe send an error back to the options page/content script?
+                }
+                break;
+            default:
+                console.warn("Unknown message action:", request.action);
+        }
+    };
+    handleMessage();
+    return false;
 });
-
-
-// Once the user has entered the encryption key, get the queue from the page and process messages
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
-    if (request.action === "encryptionKeyReceived") {
-        generateSHA256Hash(request.encryptionKey).then((key) => {
-            let keyString = arrayBufferToBase64(key);
-            setEncryptionKey(keyString);
-        });
-
-        getQueueFromPageAndProcessMessages();
-    }
-});
-
-// Execute the "findMsg" logic
-async function triggerFindMsg() {
-    const encryptionKey = await getEncryptionKey();
-    if (isEmpty(encryptionKey)) {
-        requestEncryptionKeyFromUser();
-    } else {
-        getQueueFromPageAndProcessMessages();
-    }
-}

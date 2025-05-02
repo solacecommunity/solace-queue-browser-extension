@@ -18,7 +18,8 @@
     "wss://*/*"
   ],
   "background": {
-    "service_worker": "worker_wrapper.js"
+    "service_worker": "worker_wrapper.js",
+    "type": "module"
   },
   "options_ui": {
     "page": "src/options/options.html",

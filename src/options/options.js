@@ -1,8 +1,7 @@
 
 import * as utils from './optionUtils.js';
-import * as crypt from './optionEncryptionUtils.js';
-
-// ########################################################################################
+import * as crypt from '../lib/encryptionUtils.js';
+import { isEmpty, isValidEncryptionKey, isValidMsgVpnUrl, isValidSmfHostProtocol } from '../lib/sharedUtils.js';
 
 // DOM triggers
 
@@ -10,7 +9,7 @@ import * as crypt from './optionEncryptionUtils.js';
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) {
+    if (isEmpty(encryptionKey)) {
       promptUserForEncryptionKey();
     } else {
       populateUI();
@@ -212,7 +211,7 @@ async function populateUI() {
 
     // Return if there are no connections saved in local storage
     let connections = await chrome.storage.local.get();
-    if (utils.isEmpty(connections)) { return; }
+    if (isEmpty(connections)) { return; }
 
     await initSelectedConnection(connections);
     initConnectionsContainer(connections);
@@ -271,19 +270,19 @@ async function saveConnection() {
     };
 
     // Validate JavaScript API Endpoint URL
-    if (!utils.isValidSmfHostProtocol(currentConnection.smfHost)) {
+    if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
       utils.showModalNotification('Invalid protocol', 'For the JavaScript API Enpoint field, please use one of ws://, wss://, http://, https://');
       return;
     }
 
     // Validate Message VPN URL
-    if (!utils.isValidMsgVpnUrl(currentConnection.msgVpnUrl)) {
+    if (!isValidMsgVpnUrl(currentConnection.msgVpnUrl)) {
       utils.showModalNotification('Invalid URL', 'For the Message VPN URL filed, please use a URL matching https://{{your_domain}}.messaging.solace.cloud or http(s?)://localhost:{{your_port}}/');
       return;
     }
 
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) { return; }
+    if (isEmpty(encryptionKey)) { return; }
 
     // Before saving the connection, test the connection to ensure it is valid
     // TODO: Refactor testConnection to return a Promise and await it here
@@ -417,7 +416,7 @@ function testConnection() {
   }
 
   // Validate URL protocol
-  if (!utils.isValidSmfHostProtocol(currentConnection.smfHost)) {
+  if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
     utils.showModalNotification('Invalid protocol', 'For the Message VPN URL filed, please use one of ws://, wss://, http://, https://');
     return;
   }
@@ -546,11 +545,11 @@ function promptUserForEncryptionKey() {
   submitButton.addEventListener('click', async (event) => {
     event.stopPropagation();
     const inputValue = inputBox.value;
-    if (!utils.isValidEncryptionKey(inputValue)) {
+    if (!isValidEncryptionKey(inputValue)) {
       utils.showModalNotification('Invalid Key', 'The encryption key must be at least 8 characters long, at least 1 capital letter, contain at least 1 number, and at least 1 symbol.');
       return;
     }
-    if (utils.isEmpty(inputValue)) {
+    if (isEmpty(inputValue)) {
       utils.showModalNotification('Missing Key', 'No key has been entered. Please enter an encryption key');
       return;
     }
@@ -588,7 +587,7 @@ async function exportConnections() {
     const connections = await chrome.storage.local.get();
     // Validate the encryption key
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) { return; }
+    if (isEmpty(encryptionKey)) { return; }
 
     for (const connectionId in connections) {
       const connection = connections[connectionId];
@@ -642,7 +641,7 @@ async function importFile(file) {
 
   try {
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) { return; }
+    if (isEmpty(encryptionKey)) { return; }
     const reader = new FileReader();
     reader.onload = async (e) => {
       const connections = JSON.parse(e.target.result);
@@ -725,7 +724,7 @@ async function getConnection() {
 
     let connection = await chrome.storage.local.get(this.id);
     // Checks if the retrieved connection object is not empty
-    if (utils.isEmpty(connection)) {
+    if (isEmpty(connection)) {
       // Clears the form fields if the connection object is empty (e.g., new connection)
       clearConnectionFields();
       utils.setValue('connectionId', this.id);
@@ -738,7 +737,7 @@ async function getConnection() {
 
     // Validate the encryption key
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) { return; }
+    if (isEmpty(encryptionKey)) { return; }
     if (connection.encrypted) {
       // Decode base64 encryption key to array buffer
       const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
@@ -853,11 +852,11 @@ async function initSelectedConnection(connections) {
     }
   });
 
-  if (utils.isEmpty(selectedConnection)) { return; }
+  if (isEmpty(selectedConnection)) { return; }
 
   // Validate the encryption key
   const encryptionKey = await crypt.getEncryptionKey();
-  if (utils.isEmpty(encryptionKey)) { return; }
+  if (isEmpty(encryptionKey)) { return; }
   if (selectedConnection.encrypted) {
     // Decode base64 encryption key to array buffer
     const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
@@ -955,7 +954,7 @@ function validateMandatoryConnectionFieldValues() {
  */
 async function reencryptConnections(newEncryptionKey) {
   const connections = await chrome.storage.local.get();
-  if (utils.isEmpty(connections)) { return; }
+  if (isEmpty(connections)) { return; }
   // Generate a new SHA-256 hash for the new encryption key
   // This is required as encryptString expects a SHA-256 hash key
   const newEncryptionKeyHash = await crypt.generateSHA256Hash(newEncryptionKey);
