@@ -44,7 +44,6 @@ async function queryMessagesFromQueue(dynamicQueueName) {
     console.log(`queryMessagesFromQueue executed - on QUEUE NAME: ${dynamicQueueName}`);
 
     try {
-        
         // Encryption key is required to decrypt messages. If it's not available, request it from the user.
         const encryptionKey = await getEncryptionKey();
         if (isEmpty(encryptionKey)) {
@@ -71,14 +70,14 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         });
 
         // Get domain, port and protocol from URL using regex
-        // Adjusted regex for flexibility and potential edge cases
-        const domainMatch = url.match(/^(https?:\/\/[^/]+)/);
+        const domainMatch = url.match(/^https:\/\/(.*).messaging.solace.cloud:\d+|^http(s?):\/\/localhost:\d+/);
         if (!domainMatch) {
             sendErrorToPage('URL Error', 'Could not extract domain from the current page URL.');
             return;
         }
-        const domain = domainMatch[1]; // Use group 1 which contains the protocol + domain + port
-
+        
+        const pageOrigin = new URL(url).origin; // Get "protocol://hostname:port" reliably
+        console.log("Detected page origin:", pageOrigin);
 
         // Find active connection
         let activeConnection = null;
@@ -87,11 +86,15 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             const connection = connections[connectionId];
             // Ensure connection has a msgVpnUrl before comparing
             if (connection && connection.msgVpnUrl) {
-                // Normalize URLs by removing trailing slashes for comparison
-                const normalizedConnectionUrl = connection.msgVpnUrl.replace(/\/$/, '');
-                if (normalizedConnectionUrl === domain) {
-                    activeConnection = connection;
-                    break; // Exit loop once found
+                try {
+                    const connectionOrigin = new URL(connection.msgVpnUrl).origin;
+                    if (connectionOrigin === pageOrigin) {
+                        activeConnection = connection;
+                        console.log("Found matching connection:", connection.connectionName);
+                        break;
+                    }
+                } catch (e) {
+                    console.warn(`Could not parse msgVpnUrl for connection '${connection.connectionName}': ${connection.msgVpnUrl}`);
                 }
             }
         }
@@ -100,7 +103,6 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             sendErrorToPage('No connection found', `No connection found matching the current page domain (${domain}). Please check the 'Message VPN URL' in the Options page.`);
             return;
         }
-
 
         // Decrypt password if it is encrypted
         if (activeConnection.encrypted) {
