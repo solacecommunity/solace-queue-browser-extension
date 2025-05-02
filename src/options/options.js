@@ -278,7 +278,7 @@ async function saveOption() {
 
     // Validate Message VPN URL
     if (!utils.isValidMsgVpnUrl(currentConnection.msgVpnUrl)) {
-      utils.showModalNotification('Invalid URL', 'For the Message VPN URL filed, please use a URL matching https://{{your_domain}}.messaging.solace.cloud or http://localhost:{{your_port}}/');
+      utils.showModalNotification('Invalid URL', 'For the Message VPN URL filed, please use a URL matching https://{{your_domain}}.messaging.solace.cloud or http(s?)://localhost:{{your_port}}/');
       return;
     }
 
