@@ -1,33 +1,91 @@
 
-// Listen for messages from the background script
-// The background script will send a message to the content script to request the encryption key from the user (requestEncryptionKey)
-// The background script will send a message to the content script to extract the queue name from the page (getQueueName)
-// The background script will send a message to the content script to set the payload on the page (setPayload)
-// The background script will send a message to the content script to set an error message on the page (setError)
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-	switch (request.action) {
-		case "createFindMsgButton":
-			this.setTimeout(() => {
-				createFindMsgButton();
-			}, 2000);
-			break;
-		case "requestEncryptionKey":
-			requestEncryptionKey();
-			break;
-		case "getQueueName":
-			getQueueName(sendResponse);
-			break;
-		case "setPayload":
-			setPayload(request)
-			break;
-		case "setError":
-			showModalNotification(request.error.name, request.error.message);
-			break;
-		default:
-			console.error("Unknown action:", request.action);
-			showModalNotification("Error", `Unknown action: ${request.action}`);
+console.log("Solace Extension: inject.js running on:", window.location.href);
+
+// --- Constants and Variables ---
+const QUEUE_MESSAGES_PAGE_PATTERN = /^https:\/\/.*\.messaging\.solace\.cloud:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$|^http(s?):\/\/localhost:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$/;
+const BUTTON_ID = 'findMsgsExtensionButtonId';
+const DELAY = 500; // Delay in ms for DOM checks
+
+// Constants Selectors for DOM manipulation
+const NAVBAR_SELECTOR = '.au-target.table-action-panel.nav.flex-nowrap';
+
+// Constants for element IDs
+const METADATA_CONTAINER_ID =  'extension-queue-metadata-conatiner';
+const PAYLOAD_CONTAINER_ID = 'extension-queue-msg-conatiner';
+
+let debounceTimer = null;
+
+// --- Run Initialization ---
+initializeObserver(); // Start checking state and observing DOM
+setupBackgroundMessageListener(); // Set up listener for background communication
+
+// --- Initialization and Observation ---
+
+/**
+ * Initializes the MutationObserver to watch for changes in the DOM.
+ * This function does the following:
+ * 1. Checks the current URL to determine if the Find Messages button should be displayed.
+ * 2. Sets up a MutationObserver to watch for changes in the DOM.
+ * 3. Calls the checkUrlAndManageButton function to manage the button's visibility.
+ * 4. Debounces the check to avoid running it too frequently during rapid DOM updates.
+ */
+function initializeObserver() {
+	// Initial check when the script loads
+	checkUrlAndManageButton();
+
+	// Set up the MutationObserver to watch for DOM changes indicating navigation
+	const observer = new MutationObserver((mutationsList, observer) => {
+		clearTimeout(debounceTimer);
+		debounceTimer = setTimeout(checkUrlAndManageButton, DELAY);
+	});
+
+	// Observe the entire document body for child list changes and subtree modifications
+	observer.observe(document.body, {
+		childList: true,
+		subtree: true
+	});
+
+	console.log("Solace Extension: Observer initialized.");
+}
+
+/**
+ * Checks the current URL and manages the Find Messages button accordingly.
+ */
+function checkUrlAndManageButton() {
+	if (QUEUE_MESSAGES_PAGE_PATTERN.test(window.location.href)) {
+		createFindMsgButton();
+	} else {
+		removeFindMessagesButton();
 	}
-});
+}
+
+/**
+ * Sets up a listener for messages from the background script.
+ * 
+ */
+function setupBackgroundMessageListener() {
+	chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+		switch (request.action) {
+			case "requestEncryptionKey":
+				requestEncryptionKey();
+				return false;
+			case "getQueueName":
+				getQueueName(sendResponse);
+				return true;
+			case "setPayload":
+				setPayload(request);
+				return false;
+			case "setError":
+				showModalNotification(request.error.name, request.error.message);
+				return false;
+			default:
+				console.error("Unknown action:", request.action);
+				showModalNotification("Error", `Unknown action: ${request.action}`);
+				return false;
+		}
+	});
+}
+
 
 /**
  * Creates the Find Messages button on the page.
@@ -38,23 +96,67 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
  * 3. When the Find Messages button is clicked, sends a message to the background script to trigger the Find Messages logic.
  */
 function createFindMsgButton() {
-	if (document.getElementById('findMsgs')) return;
+	if (document.getElementById(BUTTON_ID)) return; // Button already exists
+
+	const navBar = document.querySelector(NAVBAR_SELECTOR);
+	if (!navBar) {
+		console.error("[Button Manager] Target navigation bar not found. Cannot add button yet.");
+		return; // Target not ready
+	}
+
 	const displayMsgBtn = document.createElement('li');
 	displayMsgBtn.className = 'au-target nav-item action-menu list-action';
 	displayMsgBtn.innerHTML = `
-		<button id="findMsgs" class="au-target nav-link create-action" tabindex="0">
+		<button id="${BUTTON_ID}" class="au-target nav-link create-action" tabindex="0">
 			<i class="material-icons">add</i>
 			<span class="label-sm">Find Messages</span>
 		</button>
 	`;
-	const navBar = document.querySelector('.au-target.table-action-panel.nav.flex-nowrap');
-	const lastChild = navBar.lastElementChild;
-	navBar.insertBefore(displayMsgBtn, lastChild);
 
-	const createActionButton = displayMsgBtn.querySelector('#findMsgs');
-	createActionButton.addEventListener('click', () => {
-		chrome.runtime.sendMessage({ action: "triggerFindMsg" });
-	});
+	const lastChild = navBar.lastElementChild;
+
+	try {
+		if (lastChild) {
+			navBar.insertBefore(displayMsgBtn, lastChild);
+		} else {
+			navBar.appendChild(displayMsgBtn);
+		}
+		console.log("[Button Manager] Button inserted into DOM.");
+
+		const actionButton = displayMsgBtn.querySelector(`#${BUTTON_ID}`);
+		if (actionButton) {
+			actionButton.addEventListener('click', () => {
+				console.log("[Button Manager] Button clicked, sending triggerFindMsg.");
+				chrome.runtime.sendMessage({ action: "triggerFindMsg" });
+			});
+		} else {
+			console.error("[Button Manager] Couldn't find button after insertion to add listener.");
+		}
+	} catch (error) {
+		console.error("[Button Manager] Error inserting button or adding listener:", error);
+	}
+}
+
+/**
+ * Removes the Find Messages button from the page.
+ * 
+ * This function does the following:
+ * 1. Checks if the Find Messages button exists on the page.
+ * 2. If it exists, removes the button from the DOM.
+ * 3. If the button is not found, logs a message indicating that nothing was removed.
+ */
+function removeFindMessagesButton() {
+	const buttonElement = document.getElementById(BUTTON_ID);
+	if (buttonElement) {
+		// The button is inside an <li> element, remove the parent <li>
+		const parentLi = buttonElement.closest('li.nav-item');
+		if (parentLi) {
+			parentLi.remove();
+		} else {
+			console.warn("[Button Manager] Found button but couldn't find parent <li> to remove.");
+			buttonElement.remove(); // Fallback: remove just the button itself
+		}
+	}
 }
 
 /**
@@ -125,7 +227,7 @@ async function setPayload(request) {
 	}
 
 	try {
-		removeExistingElements(message.messageId);
+		removeExistingExtensionElements(message.messageId);
 		/*
 			Currently, queryMessagesFromQueue() in finMessages.js file returns all msgs on a queue. 
 			The UI contains only 100 messages or `list-row-menu_Messages_Queued_${request.messageId =< 100 elements.}`.
@@ -151,16 +253,16 @@ async function setPayload(request) {
  * 
  * @param {string} messageId - The ID of the message.
  */
-function removeExistingElements(messageId) {
-	const elementsToRemove = [
-		`application-properties-container-${messageId}`,
-		`queue-extension-container-${messageId}`,
-		`line-${messageId}`
-	];
-	elementsToRemove.forEach(id => {
-		const element = document.getElementById(id);
-		if (element) element.remove();
-	});
+function removeExistingExtensionElements(messageId) {
+	const metadataContainer = document.getElementById(`${METADATA_CONTAINER_ID}-${messageId}`);
+	if (metadataContainer) {
+		metadataContainer.remove();
+	}
+
+	const payloadContainer = document.getElementById(`${PAYLOAD_CONTAINER_ID}-${messageId}`);
+	if (payloadContainer) {
+		payloadContainer.remove();
+	}
 }
 
 /**
@@ -184,7 +286,7 @@ function findElementToAppendPayloadContainer(dataRow) {
 */
 function createMetaDataContainer(expandedDiv, messageId, metadataPropList) {
 	let metaDataContainer = `
-		<div id="queue-msg-conatiner-${messageId}" class="expanded-detail expanded-content">
+		<div id="${METADATA_CONTAINER_ID}-${messageId}" class="expanded-detail expanded-content">
 			<div class="flow-column">
 				<div class="flow-row">
 					<span class="attr-label au-target" id="app-msg-id-lbl-${messageId}">Application Message ID:</span>
@@ -223,7 +325,7 @@ function createPayloadContainer(expandedDiv, messageId, userProps, queuedMsg) {
 	let queueMsgCpyLblId = `queue-msg-copy-lbl-${messageId}`;
 
 	let messageContainer = `
-		<div id="queue-extension-container-${messageId}" class="expanded-detail expanded-content">
+		<div id="${PAYLOAD_CONTAINER_ID}-${messageId}" class="expanded-detail expanded-content">
 	`;
 
 	// Append the queued message container if queuedMsg is not empty

@@ -5,16 +5,16 @@ chrome.action.onClicked.addListener(() => {
     chrome.runtime.openOptionsPage();
 });
 
-// Listen for URL changes
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status == 'complete') {
-        const urlPattern = /^https:\/\/.*\.messaging\.solace\.cloud:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$|^http(s?):\/\/localhost:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$/
-        if (urlPattern.test(tab.url)) {
-            console.log("URL matches pattern, sending message to content script to create the button");
-            chrome.tabs.sendMessage(tabId, { action: "createFindMsgButton" });
-        }
-    }
-});
+// // Listen for URL changes
+// chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+//     if (changeInfo.status == 'complete') {
+//         const urlPattern = /^https:\/\/.*\.messaging\.solace\.cloud:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$|^http(s?):\/\/localhost:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$/;
+//         if (urlPattern.test(tab.url)) {
+//             console.log("URL matches pattern, sending message to content script to create the button");
+//             chrome.tabs.sendMessage(tabId, { action: "createFindMsgButton" });
+//         }
+//     }
+// });
 
 // Listen for messages from content scripts and trigger the beginning of the "findMsg" logic
 chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {

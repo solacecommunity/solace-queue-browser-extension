@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Add event listeners to the 'Save', 'New Connection' and 'Delete buttons
     document.getElementById('delete').addEventListener('click', deleteOption);
-    document.getElementById('save').addEventListener('click', saveOption);
+    document.getElementById('save').addEventListener('click', saveConnection);
     document.getElementById('newConnection').addEventListener('click', createBlankConnection);
 
     // Creates and downloads a JSON document containing the exported connections
@@ -224,24 +224,24 @@ async function populateUI() {
 }
 
 /**
- * Saves the user-defined options for the application into local storage.
+ * Saves the user-defined connection for the application into local storage.
  * This function is typically called when the user submits a form containing various settings or preferences.
  * 
  * Steps performed by the function:
  * 1. Collects the values from the form fields specified in the UI.
- * 2. Constructs an object, `options`, containing the key-value pairs of the settings.
+ * 2. Constructs an object, `connection`, containing the key-value pairs of the settings.
  * 3. Validates the collected values to ensure they meet the application's requirements.
  *    - This may involve checking for empty fields, ensuring values are within acceptable ranges, etc.
- * 4. If validation passes, the `options` object is serialized (e.g., converted to a JSON string) and saved to local storage.
+ * 4. If validation passes, the `connection` object is serialized (e.g., converted to a JSON string) and saved to local storage.
  * 5. The user is notified of the successful save operation, often through a UI element such as a toast notification or modal dialog.
  * 6. In case of validation failure or other errors, appropriate feedback is provided to the user, and the save operation is aborted.
  * 
  * Note:
- * - The actual keys and structure of the `options` object will vary based on the application's specific settings and requirements.
+ * - The actual keys and structure of the `connection` object will vary based on the application's specific settings and requirements.
  * - Error handling should be implemented to catch and manage exceptions, especially those related to local storage limits or permissions.
  */
 
-async function saveOption() {
+async function saveConnection() {
   try {
     // Set DOM connection ID
     utils.setValue('connectionId', utils.getValue('connectionId') || crypto.randomUUID());
@@ -286,6 +286,7 @@ async function saveOption() {
     if (utils.isEmpty(encryptionKey)) { return; }
 
     // Before saving the connection, test the connection to ensure it is valid
+    // TODO: Refactor testConnection to return a Promise and await it here
     testConnection();
 
     // Decode base64 encryption key to array buffer
@@ -300,23 +301,18 @@ async function saveOption() {
 
     const connections = await chrome.storage.local.get();
 
-    // Deselect all connections if the current connection is selected
-    if (currentConnection.selected === true) {
-      Object.entries(connections).forEach(([connectionId, connection]) => {
-        connection.selected = false;
-      });
-    }
+    // Deselect all connections
+    Object.values(connections).forEach(connection => connection.selected = false);
 
     connections[currentConnection.id] = currentConnection;
-    chrome.storage.local.set(connections);
+    await chrome.storage.local.set(connections);
 
     // Remove connections container
     document.getElementById('connections').innerHTML = '';
+    await initSelectedConnection(connections); // Repopulate form with saved (potentially new) data
+    initConnectionsContainer(connections); // Repopulate connections container
 
     utils.showToastNotification('Connection saved successfully!');
-
-    await initSelectedConnection(connections);
-    initConnectionsContainer(connections);
 
   } catch (error) {
     utils.handleError(error);
@@ -718,7 +714,7 @@ function resetExtension() {
 // General Functions
 
 /**
- * Displays the options from local storage and populates the input fields with the saved values.
+ * Displays the connection from local storage and populates the input fields with the saved values.
  */
 async function getConnection() {
   try {
