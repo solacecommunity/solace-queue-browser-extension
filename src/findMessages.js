@@ -1,10 +1,13 @@
-
 /**
  * Displays a toast notification to the user requesting an encryption key.
  */
 async function requestEncryptionKeyFromUser() {
-    await chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: "requestEncryptionKey" });
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        if (tabs && tabs.length > 0) {
+            chrome.tabs.sendMessage(tabs[0].id, { action: "requestEncryptionKey" });
+        } else {
+            console.error("Could not find active tab to request encryption key.");
+        }
     });
 }
 
@@ -14,11 +17,20 @@ async function requestEncryptionKeyFromUser() {
  */
 function getQueueFromPageAndProcessMessages() {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: "getQueueName" }, function (response) {
-            queryMessagesFromQueue(response.queueNameOnPage);
-        });
+        if (tabs && tabs.length > 0) {
+            chrome.tabs.sendMessage(tabs[0].id, { action: "getQueueName" }, function (response) {
+                // Ensure response exists and has the queue name
+                if (response && response.queueNameOnPage) {
+                    queryMessagesFromQueue(response.queueNameOnPage);
+                } else {
+                    console.error("Did not receive queue name from content script.");
+                    sendErrorToPage("Error", "Could not get queue name from the page.");
+                }
+            });
+        } else {
+            console.error("Could not find active tab to get queue name.");
+        }
     });
-
 }
 
 /**
@@ -46,85 +58,107 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         solace.SolclientFactory.init(factoryProps);
 
         // Get page URL
-        let url = '';
-        url = await new Promise((resolve, reject) => {
+        let url = await new Promise((resolve, reject) => {
             chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
                 if (chrome.runtime.lastError) {
                     reject(chrome.runtime.lastError);
-                } else {
+                } else if (tabs && tabs.length > 0) {
                     resolve(tabs[0].url);
+                } else {
+                    reject(new Error("No active tab found."));
                 }
             });
         });
 
         // Get domain, port and protocol from URL using regex
-        const domainMatch = url.match(/^https:\/\/(.*).messaging.solace.cloud:\d+|^http(s?):\/\/localhost:\d+/);
+        const domainMatch = url.match(/^https:\/\/(.*).messaging.solace.cloud:\d+|^http:\/\/localhost:\d+/);
         const domain = domainMatch[0];
 
         // Find active connection
         let activeConnection = null;
         const connections = await chrome.storage.local.get();
-        Object.entries(connections).forEach(([connectionId, connection]) => {
-            // Normalize URLs by removing trailing slashes
-            const normalizedConnectionUrl = connection.msgVpnUrl.replace(/\/$/, '');
-            if (normalizedConnectionUrl === domain) {
-                activeConnection = connection;
-                return;
+        for (const connectionId in connections) {
+            const connection = connections[connectionId];
+            // Ensure connection has a msgVpnUrl before comparing
+            if (connection && connection.msgVpnUrl) {
+                // Normalize URLs by removing trailing slashes for comparison
+                const normalizedConnectionUrl = connection.msgVpnUrl.replace(/\/$/, '');
+                if (normalizedConnectionUrl === domain) {
+                    activeConnection = connection;
+                    break; // Exit loop once found
+                }
             }
-        });
+        }
+
         if (!activeConnection) {
-            sendErrorToPage('No connection found', 'No connection found for the current page. Please check the Message VPN URL on the connection in the Options page matches the current page URL');
+            sendErrorToPage('No connection found', `No connection found matching the current page domain (${domain}). Please check the 'Message VPN URL' in the Options page.`);
             return;
         }
 
+
         // Decrypt password if it is encrypted
         if (activeConnection.encrypted) {
-            // Decode base64 encryption key
-            const encryptionKeyArrayBuffer = base64ToArrayBuffer(encryptionKey);
-            await decryptString(activeConnection.password, activeConnection.iv, encryptionKeyArrayBuffer).then((decryptedData) => {
+            try {
+                // Assuming base64ToArrayBuffer and decryptString are defined elsewhere
+                const encryptionKeyArrayBuffer = base64ToArrayBuffer(encryptionKey);
+                const decryptedData = await decryptString(activeConnection.password, activeConnection.iv, encryptionKeyArrayBuffer);
                 activeConnection.password = decryptedData;
-            });
+            } catch (decryptionError) {
+                console.error("Decryption failed:", decryptionError);
+                sendErrorToPage('Decryption Error', 'Failed to decrypt password. Please check your encryption key.');
+                return;
+            }
         }
 
         // Validate activeConnection parameters
         const requiredParams = ['smfHost', 'msgVpn', 'userName', 'password'];
         for (const param of requiredParams) {
             if (!activeConnection[param]) {
-                sendErrorToPage('Missing Parameter', `Options page is missing the ${param} parameter. Please set the ${param} in the Options page.`);
+                sendErrorToPage('Missing Parameter', `Connection configuration is missing the '${param}' parameter. Please set it in the Options page.`);
                 return;
             }
         }
-
+        
         // Login to Solace
-        const session = solace.SolclientFactory.createSession({
+        let session = solace.SolclientFactory.createSession({ // Use 'let' to allow reassignment to null
             url: activeConnection.smfHost,
             vpnName: activeConnection.msgVpn,
             userName: activeConnection.userName,
             password: activeConnection.password,
-            connectRetries: 0,
+            connectRetries: 0, // Set to 0 for immediate failure feedback
         });
 
+        // Flag to prevent storing messages after session disconnect/error
+        let connectionActive = true;
+
         session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, function (sessionEvent) {
+            connectionActive = false; // Mark connection as inactive
+            let errorTitle = 'Connection Failed';
+            let errorMessage = `${sessionEvent.message || sessionEvent.infoStr}. | Solace Error Code: ${sessionEvent.errorSubcode}`;
+
             switch (sessionEvent.errorSubcode) {
                 case solace.ErrorSubcode.MESSAGE_VPN_NOT_ALLOWED:
-                    console.error(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist | Solace Error Code: ${sessionEvent.errorSubcode}`);
-                    sendErrorToPage(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    errorMessage = `The Message VPN '${activeConnection.msgVpn}' does not exist or is not allowed. | Solace Error Code: ${sessionEvent.errorSubcode}`;
                     break;
                 case solace.ErrorSubcode.LOGIN_FAILURE:
-                    console.error(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-                    sendErrorToPage(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    errorMessage = `Incorrect username or password. | Solace Error Code: ${sessionEvent.errorSubcode}`;
                     break;
                 case solace.ErrorSubcode.CLIENT_ACL_DENIED:
-                    console.error(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-                    sendErrorToPage(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
+                    errorMessage = `Client IP address not allowed by ACL. | Solace Error Code: ${sessionEvent.errorSubcode}`;
                     break;
-                default:
-                    console.error(`${sessionEvent.message}. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-                    sendErrorToPage('Error', `${sessionEvent.message}. | Solace Error Code: ${sessionEvent.errorSubcode}`);
-                    break;
+                // Add more specific cases if needed
+            }
+            console.error(errorTitle, errorMessage, sessionEvent);
+            sendErrorToPage(errorTitle, errorMessage);
+            // Clean up session if it exists
+            if (session) {
+                session.dispose();
+                session = null;
             }
         });
+
         session.on(solace.SessionEventCode.DISCONNECTED, function (sessionEvent) {
+            connectionActive = false; // Mark connection as inactive
             console.log('=== Session Disconnected ===');
             if (session !== null) {
                 session.dispose();
@@ -132,7 +166,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             }
         });
 
-
+        
         session.on(solace.SessionEventCode.UP_NOTICE, function (sessionEvent) {
             console.log('=== Session successfully connected ===');
 
@@ -143,20 +177,39 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                 }
             });
 
+            let queueBrowserActive = true; // Flag for queue browser state
+
             qb.on(solace.QueueBrowserEventName.UP, () => {
                 console.log('Connected to Queue Browser. Waiting for messages...');
+                // Maybe send a status update to the page? Optional.
+                // sendStatusToPage("Connected to queue, browsing messages...");
             });
 
             qb.on(solace.QueueBrowserEventName.DOWN, () => {
+                queueBrowserActive = false;
                 console.log('=== Queue Browser Disconnected ===');
+                // This might happen naturally due to timeout/disconnect call, or due to an error.
+                // Storage logic is handled in the main timeout below.
             });
 
             qb.on(solace.QueueBrowserEventName.CONNECT_FAILED_ERROR, (error) => {
-                console.error(`${error.message}: ${JSON.stringify(error.reason)}`);
-                sendErrorToPage('Queue Browser Connection Error', `${error.message}: ${JSON.stringify(error.reason)}`);
+                queueBrowserActive = false;
+                connectionActive = false; // Also mark session connection potentially problematic
+                console.error(`Queue Browser Connection Error: ${error.message}`, error.reason);
+                sendErrorToPage('Queue Browser Error', `${error.message}. Reason: ${JSON.stringify(error.reason)}`);
+                // Attempt to clean up session
+                if (session) {
+                    try { session.disconnect(); } catch (e) { /* ignore */ }
+                }
             });
 
             qb.on(solace.QueueBrowserEventName.MESSAGE, (message) => {
+                // Only collect messages if the connection is still considered active
+                if (!connectionActive || !queueBrowserActive) {
+                    console.log("Ignoring message received after disconnect/error.");
+                    return;
+                }
+
                 const appMsgId = message.getApplicationMessageId();
                 const destination = message.getDestination();
 
@@ -168,8 +221,8 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                 if (activeConnection.showUserProps) {
                     let userProps = message.getUserPropertyMap();
                     if (userProps) {
-                        userProps.getKeys().forEach(x => {
-                            userPropsList[x] = userProps.getField(x).Tc; // getField returns a object with Rc and TC as keys. Tc key contains our property
+                        userProps.getKeys().forEach(key => {
+                            userPropsList[key] = userProps.getField(key).Tc; // getField returns a object with Rc and TC as keys. Tc key contains our property
                         });
                     }
                 }
@@ -177,58 +230,82 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                 metadataPropList['appMsgId'] = appMsgId || 'Not specified';
                 if (!isEmpty(destination)) {
                     metadataPropList['destinationName'] = destination.getName();
-                    metadataPropList['destinationType'] = destination.Rc;
+                    metadataPropList['destinationType'] = destination.Rc ? destination.Rc : 'UNKNOWN'; // Use Rc if available, else default to 'UNKNOWN'
                 }
 
                 if (activeConnection.showMsgPayload) {
-                    queuedMsg = message.getBinaryAttachment();
-
+                    // Consider potential large payloads and storage limits
+                    // Store as base64 string for JSON compatibility in storage?
+                    // queuedMsg = arrayBufferToBase64(message.getBinaryAttachment()); // Requires arrayBufferToBase64 utility
+                    queuedMsg = message.getBinaryAttachment(); // Keep as is for now, content script needs to handle ArrayBuffer/Uint8Array
                 }
+
+                // Send the message to the page
                 sendPayloadToPage({
                     messageId: message.rc.low,
                     metadataPropList: metadataPropList,
                     userProps: userPropsList,
                     queuedMsg: queuedMsg
                 });
+                
             });
 
-            qb.connect(); // Connect with QueueBrowser to receive QueueBrowserEvents.
+            qb.connect(); // Connect QueueBrowser
 
-
-            // Disconnect Queue Browser after 60 seconds
+            // Timeout to stop browsing and store results
+            const browseTimeout = 60000; // 60 seconds
             setTimeout(() => {
-                console.log('Disconnecting from Queue Browser...');
-                if (qb !== null) {
+                console.log(`Disconnecting from Queue Browser after ${browseTimeout / 1000} seconds...`);
+                if (qb !== null && queueBrowserActive) {
                     try {
                         qb.disconnect();
+                        queueBrowserActive = false; // Mark as explicitly disconnected
                     } catch (error) {
-                        console.error(error.toString());
+                        console.error("Error disconnecting queue browser:", error.toString());
                     }
                 } else {
-                    console.log('Not connected to Queue Browser.');
+                    console.log('Queue Browser already disconnected or not connected.');
                 }
-            }, 60000); // 60 seconds
+            }, browseTimeout);
         });
 
-        session.connect(); // Connect session
+        // Attempt to connect the session
+        try {
+            session.connect();
+        } catch (connectError) {
+            connectionActive = false;
+            console.error("Session connect() call failed:", connectError);
+            sendErrorToPage("Connection Error", `Failed to initiate connection: ${connectError.message}`);
+            if (session) { // Clean up partially created session
+                session.dispose();
+                session = null;
+            }
+            return; // Stop further execution
+        }
 
-        // Disconnect session after 65 seconds
+
+        // Disconnect session slightly after queue browser timeout
+        const sessionTimeout = 65000; // 65 seconds
         setTimeout(() => {
             console.log('Disconnecting from Solace PubSub+ Event Broker...');
             if (session !== null) {
                 try {
                     session.disconnect();
+                    // Session object will be disposed via the DISCONNECTED event handler
                 } catch (error) {
-                    console.error(error.toString());
+                    console.error("Error disconnecting session:", error.toString());
                 }
             } else {
-                console.log('Not connected to Solace PubSub+ Event Broker.');
+                console.log('Session already disconnected or failed to connect.');
             }
-        }, 65000); // 65 seconds
+        }, sessionTimeout);
 
     } catch (error) {
-        console.error(error);
-        sendErrorToPage(error.name, error.message);
+        console.error("General error in queryMessagesFromQueue:", error);
+        sendErrorToPage(error.name || "Error", error.message || "An unknown error occurred during message querying.");
+        // Ensure potential session cleanup if error happened after creation but before connect logic
+        // Note: The session object might not be defined depending on where the error occurred.
+        // Consider adding cleanup logic in a finally block if needed.
     }
 }
 
@@ -239,10 +316,19 @@ async function queryMessagesFromQueue(dynamicQueueName) {
  */
 function sendPayloadToPage(message) {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, {
-            action: "setPayload",
-            message: message
-        });
+        if (tabs && tabs.length > 0) {
+            chrome.tabs.sendMessage(tabs[0].id, {
+                action: "setPayload",
+                message: message
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.warn("Could not send message to content script:", chrome.runtime.lastError.message);
+                }
+            });
+        }
+        else {
+            console.error("Could not find active tab to send message to.");
+        }
     });
 }
 
@@ -250,10 +336,22 @@ function sendPayloadToPage(message) {
 /**
  * Sends an error message to the active page.
  *
- * @param {string} error - The error message to send.
+ * @param {string} name - The name/title of the error.
+ * @param {string} message - The detailed error message.
  */
 function sendErrorToPage(name, message) {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: "setError", error: { 'name': name, 'message': message } });
+        if (tabs && tabs.length > 0) {
+            chrome.tabs.sendMessage(tabs[0].id, {
+                action: "setError",
+                error: { 'name': name, 'message': message }
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.warn("Could not send error to content script:", chrome.runtime.lastError.message);
+                }
+            });
+        } else {
+            console.error(`Error occurred but could not find active tab to display it: ${name} - ${message}`);
+        }
     });
 }
