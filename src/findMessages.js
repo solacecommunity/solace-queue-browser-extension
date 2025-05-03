@@ -1,6 +1,6 @@
 import { getEncryptionKey, decryptString, base64ToArrayBuffer } from './lib/encryptionUtils.js';
 import { isEmpty } from './lib/sharedUtils.js';
-import './lib/solclient-full.js';
+import './lib/solclient.js';
 
 // Check if the global was set up correctly ONCE at the start
 if (typeof self.solace === 'undefined' || typeof self.solace.SolclientFactory !== 'object') { // Note: SolclientFactory itself seems to be an object based on logs

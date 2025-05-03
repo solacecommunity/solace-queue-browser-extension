@@ -1,4 +1,3 @@
-// import * as solaceModule from './src/lib/solclient.js';
 import { setEncryptionKey, generateSHA256Hash, arrayBufferToBase64 } from './src/lib/encryptionUtils.js';
 import { triggerFindMsg, getQueueFromPageAndProcessMessages } from './src/findMessages.js';
 

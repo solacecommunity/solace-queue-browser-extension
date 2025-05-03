@@ -2,7 +2,7 @@
 import * as utils from './optionUtils.js';
 import * as crypt from '../lib/encryptionUtils.js';
 import { isEmpty, isValidEncryptionKey, isValidMsgVpnUrl, isValidSmfHostProtocol } from '../lib/sharedUtils.js';
-import '../lib/solclient-full.js';
+import '../lib/solclient.js';
 
 // --- Optional Verification ---
 // Add this check after the imports to ensure the global got set
