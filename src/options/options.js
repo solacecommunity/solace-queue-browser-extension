@@ -2,6 +2,17 @@
 import * as utils from './optionUtils.js';
 import * as crypt from '../lib/encryptionUtils.js';
 import { isEmpty, isValidEncryptionKey, isValidMsgVpnUrl, isValidSmfHostProtocol } from '../lib/sharedUtils.js';
+import '../lib/solclient-full.js';
+
+// --- Optional Verification ---
+// Add this check after the imports to ensure the global got set
+if (typeof self.solace === 'undefined' || typeof self.solace.SolclientFactory !== 'object') {
+    console.error("Options Page: Global self.solace API object not found after import!");
+    // You might want to disable the "Test Connection" button or show an error here
+    // if the library fails to initialize.
+} else {
+    console.log("Options Page: Global self.solace API object seems available.");
+}
 
 // DOM triggers
 
@@ -396,9 +407,9 @@ async function deleteOption() {
 function testConnection() {
 
   // Initialize the Solace factory
-  const factoryProps = new solace.SolclientFactoryProperties();
-  factoryProps.profile = solace.SolclientFactoryProfiles.version10;
-  solace.SolclientFactory.init(factoryProps);
+  const factoryProps = new self.solace.SolclientFactoryProperties();
+  factoryProps.profile = self.solace.SolclientFactoryProfiles.version10;
+  self.solace.SolclientFactory.init(factoryProps);
 
   // Get the active connection
   const currentConnection = {
@@ -424,7 +435,7 @@ function testConnection() {
   let session = null;
   try {
     // Login to Solace
-    session = solace.SolclientFactory.createSession({
+    session = self.solace.SolclientFactory.createSession({
       url: currentConnection.smfHost,
       vpnName: currentConnection.msgVpn,
       userName: currentConnection.userName,
@@ -436,21 +447,21 @@ function testConnection() {
     utils.showToastNotification(error.message, 'error', 7000);
   }
   // define session event listeners
-  session.on(solace.SessionEventCode.UP_NOTICE, function (sessionEvent) {
+  session.on(self.solace.SessionEventCode.UP_NOTICE, function (sessionEvent) {
     console.log('=== Successfully connected and ready to view messages. ===');
     utils.showToastNotification('Successfully connected and ready to view messages.', 'success', 7000);
   });
-  session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, function (sessionEvent) {
+  session.on(self.solace.SessionEventCode.CONNECT_FAILED_ERROR, function (sessionEvent) {
     switch (sessionEvent.errorSubcode) {
-      case solace.ErrorSubcode.MESSAGE_VPN_NOT_ALLOWED:
+      case self.solace.ErrorSubcode.MESSAGE_VPN_NOT_ALLOWED:
         console.error(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`);
         utils.showToastNotification(`The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
-      case solace.ErrorSubcode.LOGIN_FAILURE:
+      case self.solace.ErrorSubcode.LOGIN_FAILURE:
         console.error(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
         utils.showToastNotification(`The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
-      case solace.ErrorSubcode.CLIENT_ACL_DENIED:
+      case self.solace.ErrorSubcode.CLIENT_ACL_DENIED:
         console.error(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
         utils.showToastNotification(`Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
@@ -460,7 +471,7 @@ function testConnection() {
         break;
     }
   });
-  session.on(solace.SessionEventCode.DISCONNECTED, function (sessionEvent) {
+  session.on(self.solace.SessionEventCode.DISCONNECTED, function (sessionEvent) {
     console.log('Disconnected.');
     if (session !== null) {
       session.dispose();
