@@ -8,7 +8,7 @@ const DELAY = 500; // Delay in ms for DOM checks
 const NAVBAR_SELECTOR = '.au-target.table-action-panel.nav.flex-nowrap';
 
 // Constants for element IDs
-const METADATA_CONTAINER_ID =  'extension-queue-metadata-conatiner';
+const METADATA_CONTAINER_ID = 'extension-queue-metadata-conatiner';
 const PAYLOAD_CONTAINER_ID = 'extension-queue-msg-conatiner';
 
 let debounceTimer = null;
@@ -63,13 +63,23 @@ function checkUrlAndManageButton() {
  */
 function setupBackgroundMessageListener() {
 	chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+		// Check if the current URL matches the queue messages page pattern
+		// If not, we are not on the right page, so ignore the message
+		// In theory, this should never happen as our manifest.json specifies the URL pattern for this script.
+		if (!QUEUE_MESSAGES_PAGE_PATTERN.test(window.location.href)) {
+			console.warn("Solace Extension: Received message from background, but not on queue page. Ignoring.", request.action);
+			return false;
+		}
 		switch (request.action) {
 			case "requestEncryptionKey":
 				requestEncryptionKey();
 				return false;
+			case "invalidKeyRetry":
+				requestEncryptionKey(request.message || "Incorrect key. Please try again.");
+				return false;
 			case "getQueueName":
 				getQueueName(sendResponse);
-				return true;
+				return true; // Asynchronous response
 			case "setPayload":
 				setPayload(request);
 				return false;
@@ -98,7 +108,7 @@ function createFindMsgButton() {
 
 	const navBar = document.querySelector(NAVBAR_SELECTOR);
 	if (!navBar) {
-		console.error("[Button Manager] Target navigation bar not found. Cannot add button yet.");
+		console.warn("[Button Manager] Target navigation bar not found. Cannot add button yet.");
 		return; // Target not ready
 	}
 
@@ -159,38 +169,47 @@ function removeFindMessagesButton() {
 
 /**
  * Displays an input window to prompt the user to enter an encryption key.
- * 
- * This function does the following:
- * 1. Displays an input window to prompt the user to enter an encryption key.
- * 2. When the user clicks the submit button, the entered key is saved in session storage.
+ * Optionally displays an initial error message.
+ * @param {string} [initialErrorMessage=null] - An error message to display initially.
  */
-function requestEncryptionKey() {
-	displayEncryptionKeyInputWindow('Enter Encryption Key', 'Enter the encryption key to decrypt the messages.');
+function requestEncryptionKey(initialErrorMessage = null) {
+	displayEncryptionKeyInputWindow('Enter Encryption Key', 'Enter the encryption key to decrypt the messages', initialErrorMessage);
 
-	const encryptionKeyInputWindow = document.getElementById('encryption-key-input-window');
-	const submitButton = document.getElementById('encryption-key-input-submit-button');
-	const inputBox = document.getElementById('encryption-key-input');
+	const encryptionKeyInputWindow = document.getElementById('encryption-key-window');
+	const submitButton = document.getElementById('encryption-key-window-submit-button');
+	const inputBox = document.getElementById('encryption-key-window-input-box');
+	const messageElement = document.getElementById('encryption-key-window-message-id');
 
-	if (!submitButton || !inputBox) { return; }
-
-	try {
-		// Handle the Encryption input window submit button click
-		submitButton.addEventListener('click', (event) => {
-			event.stopPropagation();
-			const inputValue = inputBox.value;
-			if (inputValue) {
-				document.body.removeChild(encryptionKeyInputWindow);
-
-				// Send message to background script to indicate that the encryption key has been received
-				chrome.runtime.sendMessage({ action: 'encryptionKeyReceived', encryptionKey: inputValue });
-			} else {
-				showModalNotification('Missing Key', 'No key has been entered. Please enter an encryption key');
-			}
-		});
-	} catch (error) {
-		console.error(error);
-		showModalNotification('Error', error.message);
+	if (!submitButton || !inputBox || !encryptionKeyInputWindow || !messageElement) {
+		console.error("Failed to find elements for encryption key modal in requestEncryptionKey.");
+		return;
 	}
+
+	// Use a named function for the listener to allow removal
+	const handleKeySubmit = (event) => {
+		event.stopPropagation();
+		const inputValue = inputBox.value;
+		if (inputValue) {
+			if (encryptionKeyInputWindow.parentNode) {
+				encryptionKeyInputWindow.remove();
+			}
+			// Remove listener to prevent memory leaks
+			submitButton.removeEventListener('click', handleKeySubmit);
+
+			// Send message to background script
+			console.log("Sending encryptionKeyReceived to background.");
+			chrome.runtime.sendMessage({ action: 'encryptionKeyReceived', encryptionKey: inputValue });
+		} else {
+			// Show basic feedback in the existing modal without closing it
+			messageElement.textContent = 'Please enter an encryption key';
+			messageElement.style.color = 'red';
+			messageElement.style.fontWeight = 'bold';
+			inputBox.focus();
+		}
+	};
+
+	submitButton.removeEventListener('click', handleKeySubmit);
+	submitButton.addEventListener('click', handleKeySubmit);
 }
 
 /**
@@ -397,12 +416,13 @@ function createPayloadContainer(expandedDiv, messageId, userProps, queuedMsg) {
  * The password is stored in the Chrome local storage.
  * 
  * @param {string} title - The title to display in the modal notification.
- * @param {string} message - The message to display in the modal notification.
+ * @param {string} defaultMessage - The message to display in the modal notification.
+ * @param {string} [errorMessage=null] - An error message to display in the modal notification.
  */
-function displayEncryptionKeyInputWindow(title, message) {
+function displayEncryptionKeyInputWindow(title, defaultMessage = '', errorMessage = null) {
 	// Create the modal backdrop
 	const modal = document.createElement('div');
-	modal.id = 'encryption-key-input-window';
+	modal.id = 'encryption-key-window';
 	modal.style.position = 'fixed';
 	modal.style.width = '100%';
 	modal.style.height = '100%';
@@ -426,12 +446,21 @@ function displayEncryptionKeyInputWindow(title, message) {
 	const heading = document.createElement('h1');
 	heading.innerHTML = title;
 	heading.style.marginBottom = '10px';
+	// Create the message element
 	const messageElement = document.createElement('p');
-	messageElement.id = 'modal-message';
-	messageElement.innerHTML = message;
+	messageElement.id = 'encryption-key-window-message-id';
+    if (errorMessage) {
+        messageElement.textContent = errorMessage;
+        messageElement.style.color = 'red';
+        messageElement.style.fontWeight = 'bold';
+    } else {
+        messageElement.textContent = defaultMessage;
+        messageElement.style.color = 'black';
+        messageElement.style.fontWeight = 'normal';
+    }
 	// Create the input field
 	const inputElement = document.createElement('input');
-	inputElement.id = 'encryption-key-input';
+	inputElement.id = 'encryption-key-window-input-box';
 	inputElement.type = 'password';
 	inputElement.style.display = 'block';
 	inputElement.style.margin = '10px auto';
@@ -463,7 +492,7 @@ function displayEncryptionKeyInputWindow(title, message) {
 	});
 	// Create the submit button
 	const submitButton = document.createElement('button');
-	submitButton.id = 'encryption-key-input-submit-button';
+	submitButton.id = 'encryption-key-window-submit-button';
 	submitButton.textContent = 'Submit';
 	submitButton.style.display = 'block';
 	submitButton.style.margin = '20px auto 0';
@@ -498,6 +527,7 @@ function displayEncryptionKeyInputWindow(title, message) {
 function showModalNotification(title, message) {
 	// Create the modal backdrop
 	const modal = document.createElement('div');
+	modal.id = 'modal-notification-id';
 	modal.style.position = 'fixed';
 	modal.style.width = '100%';
 	modal.style.height = '100%';
@@ -525,7 +555,7 @@ function showModalNotification(title, message) {
 	heading.style.marginBottom = '10px';
 
 	const messageElement = document.createElement('p');
-	messageElement.id = 'modal-message';
+	messageElement.id = 'modal-message-notification-id';
 	messageElement.innerHTML = message;
 
 	// Create the close button
@@ -626,25 +656,25 @@ function copyToClipboard(textElementId, labelElementId) {
  * @returns {boolean} True if the variable is empty, false otherwise.
  */
 function isEmpty(paramVar) {
-    var blEmpty = false;
-    if (typeof paramVar != "boolean") {
-        if (!paramVar) {
-            if (paramVar !== 0) {
-                blEmpty = true;
-            }
-        }
-        else if (Array.isArray(paramVar)) {
-            if (paramVar && paramVar.length === 0) {
-                blEmpty = true;
-            }
-        }
-        else if (typeof paramVar == 'object') {
-            if (paramVar === null) {
-                 blEmpty = true;
-            } else if (paramVar && Object.keys(paramVar).length === 0 && !(paramVar instanceof Date)) {
-                blEmpty = true;
-            }
-        }
-    }
-    return blEmpty;
+	var blEmpty = false;
+	if (typeof paramVar != "boolean") {
+		if (!paramVar) {
+			if (paramVar !== 0) {
+				blEmpty = true;
+			}
+		}
+		else if (Array.isArray(paramVar)) {
+			if (paramVar && paramVar.length === 0) {
+				blEmpty = true;
+			}
+		}
+		else if (typeof paramVar == 'object') {
+			if (paramVar === null) {
+				blEmpty = true;
+			} else if (paramVar && Object.keys(paramVar).length === 0 && !(paramVar instanceof Date)) {
+				blEmpty = true;
+			}
+		}
+	}
+	return blEmpty;
 }

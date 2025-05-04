@@ -377,7 +377,7 @@ function sendPayloadToPage(message) {
  * @param {string} name - The name/title of the error.
  * @param {string} message - The detailed error message.
  */
-function sendErrorToPage(name, message) {
+export function sendErrorToPage(name, message) {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         if (tabs && tabs.length > 0) {
             chrome.tabs.sendMessage(tabs[0].id, {
