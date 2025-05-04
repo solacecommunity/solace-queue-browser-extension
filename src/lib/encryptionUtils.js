@@ -1,8 +1,3 @@
-// Note: this file is a copy of the ./src/options/optionEncryptionUtils.js file and must remain in sync with it.
-// The the importScripts() function in worker_wrapper.js can not import functions that contain 'export' statements.
-// and options.js does not have a function defined for importScripts(). 
-// Therefore, the functions in this file must be copied to optionEncryptionUtils.js for use in options.js.
-
 // Encryption functions
 /**
  * Retrieves the encryption key from session storage.
