@@ -272,10 +272,8 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                 }
 
                 if (activeConnection.showMsgPayload) {
-                    // Consider potential large payloads and storage limits
-                    // Store as base64 string for JSON compatibility in storage?
-                    // queuedMsg = arrayBufferToBase64(message.getBinaryAttachment()); // Requires arrayBufferToBase64 utility
-                    queuedMsg = message.getBinaryAttachment(); // Keep as is for now, content script needs to handle ArrayBuffer/Uint8Array
+                    // TODO: Check message size and handle large messages accordingly
+                    queuedMsg = message.getBinaryAttachment();
                 }
 
                 // Send the message to the page
