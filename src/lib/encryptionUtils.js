@@ -1,15 +1,10 @@
-// Note: this file is a copy of the ./src/options/optionEncryptionUtils.js file and must remain in sync with it.
-// The the importScripts() function in worker_wrapper.js can not import functions that contain 'export' statements.
-// and options.js does not have a function defined for importScripts(). 
-// Therefore, the functions in this file must be copied to optionEncryptionUtils.js for use in options.js.
-
 // Encryption functions
 /**
  * Retrieves the encryption key from session storage.
  * 
  * @returns {string} The encryption key stored in session storage.
  */
-async function getEncryptionKey() {
+export async function getEncryptionKey() {
   const encryptionKey = await chrome.storage.session.get('key');
   return encryptionKey.key;
 }
@@ -19,7 +14,7 @@ async function getEncryptionKey() {
  * 
  * @param {string} key - The encryption key to store in session storage.
  */
-async function setEncryptionKey(key) {
+export async function setEncryptionKey(key) {
   chrome.storage.session.set({ 'key': key });
 }
 
@@ -29,7 +24,7 @@ async function setEncryptionKey(key) {
  * @param {string} strKey - The encryption key to hash.
  * @returns {object.Promise<ArrayBuffer>} The generated key.
  */
-async function generateSHA256Hash(strKey) {
+export async function generateSHA256Hash(strKey) {
   
   // Encode the key as an ArrayBuffer to use it in the importKey method.
   const encodedKey = new TextEncoder().encode(strKey);
@@ -46,7 +41,7 @@ async function generateSHA256Hash(strKey) {
  * @param {string} base64 - The Base64 string to convert.
  * @returns {ArrayBuffer} The ArrayBuffer representation of the Base64 string.
  */
-function base64ToArrayBuffer(base64) {
+export function base64ToArrayBuffer(base64) {
   const binaryString = customBase64Decode(base64);
 
   const len = binaryString.length;
@@ -63,7 +58,7 @@ function base64ToArrayBuffer(base64) {
  * @param {ArrayBuffer} buffer - The ArrayBuffer to convert.
  * @returns {string} The Base64 string representation of the ArrayBuffer.
  */
-function arrayBufferToBase64(buffer) {
+export function arrayBufferToBase64(buffer) {
   let string = '';
   const bytes = new Uint8Array(buffer);
   const len = bytes.byteLength;
@@ -81,7 +76,7 @@ function arrayBufferToBase64(buffer) {
  * @returns {object.Promise<string>} The encrypted string.
  * @returns {object.Promise<string>} The initialization vector used for encryption.
  */
-async function encryptString(string, key) {
+export async function encryptString(string, key) {
   // If the encryption key is not set in the session storage, prompt the user to enter it
   if (!key) {
     throw new Error('No Encryption Key. Encryption key is required to encrypt the connection.');
@@ -107,7 +102,7 @@ async function encryptString(string, key) {
  * @param {ArrayBuffer} key - The encryption key used for decryption.
  * @returns {Promise<string>} The decrypted string.
  */
-async function decryptString(string, iv, key) {
+export async function decryptString(string, iv, key) {
   // If the encryption key is not set in the session storage, prompt the user to enter it
   if (!key) {
     throw new Error('No Encryption Key. Encryption key is required to decrypt the connection.');

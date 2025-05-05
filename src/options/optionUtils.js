@@ -1,42 +1,4 @@
 
-
-/**
- * Validates the Message VPN URL.
- * 
- * @param {string} msgVpnUrl - The Message VPN URL to validate.
- * @returns {boolean} - Returns true if the URL is valid, false otherwise.
- */
-export function isValidMsgVpnUrl(msgVpnUrl) {
-    const regex = /^https:\/\/.*\.messaging\.solace\.cloud:\d+\/?$|^http(s?):\/\/localhost:\d+\/?$/;
-    return regex.test(msgVpnUrl);
-}
-
-/**
- * Validates if the encryption key meets the required criteria.
- * 
- * @param {string} key - The encryption key to validate.
- * @returns {boolean} - Returns true if the key is valid, false otherwise.
- */
-export function isValidEncryptionKey(key) {
-    const minLength = 8;
-    const hasNumber = /\d/;
-    const hasSymbol = /[!@#$%^&*(),.?":{}|<>]/;
-    const hasCapitalLetter = /[A-Z]/;
-
-    return key.length >= minLength && hasNumber.test(key) && hasSymbol.test(key) && hasCapitalLetter.test(key);
-}
-
-/**
- * Validates the Solace Message Router Host protocol.
- * 
- * @param {string} smfHost - The Solace Message Router Host to validate.
- * @returns {boolean} - Returns true if the protocol is valid, false otherwise.
- */
-export function isValidSmfHostProtocol(smfHost) {
-    const regex = /^(ws|wss|http|https):\/\/.*/;
-    return regex.test(smfHost);
-}
-
 /**
  * Retrieves the value of a DOM element by its ID.
  * 
@@ -84,43 +46,7 @@ export function setChecked(id, value) {
  */
 export function handleError(error) {
     console.error(error);
-    utils.showModalNotification('Error', error.message);
-}
-
-
-
-
-/**
- * Checks if a variable is empty. A variable is considered empty if it is not a boolean and meets one of the following conditions:
- * - It is falsy and not the number 0.
- * - It is an array with a length of 0.
- * - It is an object with no own properties, excluding Date instances.
- * 
- * @param {*} paramVar - The variable to check.
- * @returns {boolean} True if the variable is empty, false otherwise.
- */
-export function isEmpty(paramVar) {
-    var blEmpty = false;
-    if (typeof paramVar != "boolean") {
-        if (!paramVar) {
-            if (paramVar !== 0) {
-                blEmpty = true;
-            }
-        }
-        else if (Array.isArray(paramVar)) {
-            if (paramVar && paramVar.length === 0) {
-                blEmpty = true;
-            }
-        }
-        else if (typeof paramVar == 'object') {
-            if (paramVar && JSON.stringify(paramVar) == '{}') {
-                blEmpty = true;
-            } else if (paramVar && Object.keys(paramVar).length === 0 && !(paramVar instanceof Date)) {
-                blEmpty = true;
-            }
-        }
-    }
-    return blEmpty;
+    showModalNotification('Error', error.message);
 }
 
 
@@ -191,6 +117,7 @@ export function showToastNotification(message, type = 'success', timeout = 3000)
 export function showModalNotification(title, message, reload = false) {
     // Create the modal backdrop
     const modal = document.createElement('div');
+	modal.id = 'modal-notification-id';
     modal.style.position = 'fixed';
     modal.style.width = '100%';
     modal.style.height = '100%';
@@ -264,14 +191,14 @@ export function showModalNotification(title, message, reload = false) {
  * The modal includes an input field for the user to enter a password.
  * 
  * @param {string} title - The title to display in the modal notification.
- * @param {string} message - The message to display in the modal notification.
+ * @param {string} defaultMessage - The defaultMessage to display in the modal notification.
  * @param {boolean} cancelOption - Whether to include a cancel button in the modal.
  * @param {boolean} resetOption - Whether to include a reset button in the modal.
  */
-export function displayEncryptionKeyInputWindow(title, message = '', cancelOption = false, resetOption = false) {
+export function displayEncryptionKeyInputWindow(title, defaultMessage = '', cancelOption = false, resetOption = false, errorMessage = null) {
     // Create the modal backdrop
     const modal = document.createElement('div');
-    modal.id = 'encryption-key-input-window';
+    modal.id = 'encryption-key-window';
     modal.style.position = 'fixed';
     modal.style.width = '100%';
     modal.style.height = '100%';
@@ -297,13 +224,22 @@ export function displayEncryptionKeyInputWindow(title, message = '', cancelOptio
     const heading = document.createElement('h1');
     heading.innerHTML = title;
     heading.style.marginBottom = '10px';
+    // Create the message element
     const messageElement = document.createElement('p');
-    messageElement.id = 'modal-message';
-    messageElement.innerHTML = message;
+	messageElement.id = 'encryption-key-window-message-id';
+    if (errorMessage) {
+        messageElement.textContent = errorMessage;
+        messageElement.style.color = 'red';
+        messageElement.style.fontWeight = 'bold';
+    } else {
+        messageElement.textContent = defaultMessage;
+        messageElement.style.color = 'black';
+        messageElement.style.fontWeight = 'normal';
+    }
 
     // Create the input field
     const inputElement = document.createElement('input');
-    inputElement.id = 'encryption-key-input';
+    inputElement.id = 'encryption-key-window-input-box';
     inputElement.type = 'password';
     inputElement.style.display = 'block';
     inputElement.style.margin = '10px auto';
@@ -378,7 +314,7 @@ export function displayEncryptionKeyInputWindow(title, message = '', cancelOptio
 
     // Create the submit button
     const submitButton = document.createElement('button');
-    submitButton.id = 'encryption-key-input-submit-button';
+    submitButton.id = 'encryption-key-window-submit-button';
     submitButton.textContent = 'Submit';
     submitButton.style.display = 'block';
     submitButton.style.margin = '20px auto 0';
@@ -416,7 +352,7 @@ export function displayEncryptionKeyInputWindow(title, message = '', cancelOptio
     if (resetOption) {
         // Create the close button
         const resetOption = document.createElement('button');
-        resetOption.id = 'reset-option-btn';
+        resetOption.id = 'encryption-key-window-reset-button';
         resetOption.textContent = 'Reset Extension';
         resetOption.style.display = 'block';
         resetOption.style.margin = '20px auto 0';
@@ -440,7 +376,7 @@ export function displayEncryptionKeyInputWindow(title, message = '', cancelOptio
     modal.appendChild(content);
     // Append the modal to the body
     document.body.appendChild(modal);
-}
+} // end of displayEncryptionKeyInputWindow
 
 export function showResetConfirmationWindow() {
     // Create the modal backdrop
@@ -469,8 +405,9 @@ export function showResetConfirmationWindow() {
     const heading = document.createElement('h1');
     heading.innerHTML = 'Reset Confirmation';
     heading.style.marginBottom = '10px';
+    // Create the message element
     const messageElement = document.createElement('p');
-    messageElement.id = 'modal-message';
+    messageElement.id = 'reset-confirmation-message-id';
     messageElement.innerHTML = 'Are you sure you want to factory reset this extension?';
     // Create the button container
     const buttonContainer = document.createElement('div');

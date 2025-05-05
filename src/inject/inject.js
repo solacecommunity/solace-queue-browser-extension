@@ -1,33 +1,99 @@
 
-// Listen for messages from the background script
-// The background script will send a message to the content script to request the encryption key from the user (requestEncryptionKey)
-// The background script will send a message to the content script to extract the queue name from the page (getQueueName)
-// The background script will send a message to the content script to set the payload on the page (setPayload)
-// The background script will send a message to the content script to set an error message on the page (setError)
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-	switch (request.action) {
-		case "createFindMsgButton":
-			this.setTimeout(() => {
-				createFindMsgButton();
-			}, 2000);
-			break;
-		case "requestEncryptionKey":
-			requestEncryptionKey();
-			break;
-		case "getQueueName":
-			getQueueName(sendResponse);
-			break;
-		case "setPayload":
-			setPayload(request)
-			break;
-		case "setError":
-			showModalNotification(request.error.name, request.error.message);
-			break;
-		default:
-			console.error("Unknown action:", request.action);
-			showModalNotification("Error", `Unknown action: ${request.action}`);
+// --- Constants and Variables ---
+const QUEUE_MESSAGES_PAGE_PATTERN = /^https:\/\/.*\.messaging\.solace\.cloud:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$|^http(s?):\/\/localhost:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$/;
+const BUTTON_ID = 'findMsgsExtensionButtonId';
+const DELAY = 500; // Delay in ms for DOM checks
+
+// Constants Selectors for DOM manipulation
+const NAVBAR_SELECTOR = '.au-target.table-action-panel.nav.flex-nowrap';
+
+// Constants for element IDs
+const METADATA_CONTAINER_ID = 'extension-queue-metadata-conatiner';
+const PAYLOAD_CONTAINER_ID = 'extension-queue-msg-conatiner';
+
+let debounceTimer = null;
+
+// --- Run Initialization ---
+initializeObserver(); // Start checking state and observing DOM
+setupBackgroundMessageListener(); // Set up listener for background communication
+
+// --- Initialization and Observation ---
+
+/**
+ * Initializes the MutationObserver to watch for changes in the DOM.
+ * This function does the following:
+ * 1. Checks the current URL to determine if the Find Messages button should be displayed.
+ * 2. Sets up a MutationObserver to watch for changes in the DOM.
+ * 3. Calls the checkUrlAndManageButton function to manage the button's visibility.
+ * 4. Debounces the check to avoid running it too frequently during rapid DOM updates.
+ */
+function initializeObserver() {
+	// Initial check when the script loads
+	checkUrlAndManageButton();
+
+	// Set up the MutationObserver to watch for DOM changes indicating navigation
+	const observer = new MutationObserver((mutationsList, observer) => {
+		clearTimeout(debounceTimer);
+		debounceTimer = setTimeout(checkUrlAndManageButton, DELAY);
+	});
+
+	// Observe the entire document body for child list changes and subtree modifications
+	observer.observe(document.body, {
+		childList: true,
+		subtree: true
+	});
+
+	console.log("Solace Extension: Observer initialized.");
+}
+
+/**
+ * Checks the current URL and manages the Find Messages button accordingly.
+ */
+function checkUrlAndManageButton() {
+	if (QUEUE_MESSAGES_PAGE_PATTERN.test(window.location.href)) {
+		createFindMsgButton();
+	} else {
+		removeFindMessagesButton();
 	}
-});
+}
+
+/**
+ * Sets up a listener for messages from the background script.
+ * 
+ */
+function setupBackgroundMessageListener() {
+	chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+		// Check if the current URL matches the queue messages page pattern
+		// If not, we are not on the right page, so ignore the message
+		// In theory, this should never happen as our manifest.json specifies the URL pattern for this script.
+		if (!QUEUE_MESSAGES_PAGE_PATTERN.test(window.location.href)) {
+			console.warn("Solace Extension: Received message from background, but not on queue page. Ignoring.", request.action);
+			return false;
+		}
+		switch (request.action) {
+			case "requestEncryptionKey":
+				requestEncryptionKey();
+				return false;
+			case "invalidKeyRetry":
+				requestEncryptionKey(request.message || "Incorrect key. Please try again.");
+				return false;
+			case "getQueueName":
+				getQueueName(sendResponse);
+				return true; // Asynchronous response
+			case "setPayload":
+				setPayload(request);
+				return false;
+			case "setError":
+				showModalNotification(request.error.name, request.error.message);
+				return false;
+			default:
+				console.error("Unknown action:", request.action);
+				showModalNotification("Error", `Unknown action: ${request.action}`);
+				return false;
+		}
+	});
+}
+
 
 /**
  * Creates the Find Messages button on the page.
@@ -38,59 +104,112 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
  * 3. When the Find Messages button is clicked, sends a message to the background script to trigger the Find Messages logic.
  */
 function createFindMsgButton() {
-	if (document.getElementById('findMsgs')) return;
+	if (document.getElementById(BUTTON_ID)) return; // Button already exists
+
+	const navBar = document.querySelector(NAVBAR_SELECTOR);
+	if (!navBar) {
+		console.warn("[Button Manager] Target navigation bar not found. Cannot add button yet.");
+		return; // Target not ready
+	}
+
 	const displayMsgBtn = document.createElement('li');
 	displayMsgBtn.className = 'au-target nav-item action-menu list-action';
 	displayMsgBtn.innerHTML = `
-		<button id="findMsgs" class="au-target nav-link create-action" tabindex="0">
+		<button id="${BUTTON_ID}" class="au-target nav-link create-action" tabindex="0">
 			<i class="material-icons">add</i>
 			<span class="label-sm">Find Messages</span>
 		</button>
 	`;
-	const navBar = document.querySelector('.au-target.table-action-panel.nav.flex-nowrap');
-	const lastChild = navBar.lastElementChild;
-	navBar.insertBefore(displayMsgBtn, lastChild);
 
-	const createActionButton = displayMsgBtn.querySelector('#findMsgs');
-	createActionButton.addEventListener('click', () => {
-		chrome.runtime.sendMessage({ action: "triggerFindMsg" });
-	});
+	const lastChild = navBar.lastElementChild;
+
+	try {
+		if (lastChild) {
+			navBar.insertBefore(displayMsgBtn, lastChild);
+		} else {
+			navBar.appendChild(displayMsgBtn);
+		}
+		console.log("[Button Manager] Button inserted into DOM.");
+
+		const actionButton = displayMsgBtn.querySelector(`#${BUTTON_ID}`);
+		if (actionButton) {
+			actionButton.addEventListener('click', () => {
+				console.log("[Button Manager] Button clicked, sending triggerFindMsg.");
+				chrome.runtime.sendMessage({ action: "triggerFindMsg" });
+			});
+		} else {
+			console.error("[Button Manager] Couldn't find button after insertion to add listener.");
+		}
+	} catch (error) {
+		console.error("[Button Manager] Error inserting button or adding listener:", error);
+	}
+}
+
+/**
+ * Removes the Find Messages button from the page.
+ * 
+ * This function does the following:
+ * 1. Checks if the Find Messages button exists on the page.
+ * 2. If it exists, removes the button from the DOM.
+ * 3. If the button is not found, logs a message indicating that nothing was removed.
+ */
+function removeFindMessagesButton() {
+	const buttonElement = document.getElementById(BUTTON_ID);
+	if (buttonElement) {
+		// The button is inside an <li> element, remove the parent <li>
+		const parentLi = buttonElement.closest('li.nav-item');
+		if (parentLi) {
+			parentLi.remove();
+		} else {
+			console.warn("[Button Manager] Found button but couldn't find parent <li> to remove.");
+			buttonElement.remove(); // Fallback: remove just the button itself
+		}
+	}
 }
 
 /**
  * Displays an input window to prompt the user to enter an encryption key.
- * 
- * This function does the following:
- * 1. Displays an input window to prompt the user to enter an encryption key.
- * 2. When the user clicks the submit button, the entered key is saved in session storage.
+ * Optionally displays an initial error message.
+ * @param {string} [initialErrorMessage=null] - An error message to display initially.
  */
-function requestEncryptionKey() {
-	displayEncryptionKeyInputWindow('Enter Encryption Key', 'Enter the encryption key to decrypt the messages.');
+function requestEncryptionKey(initialErrorMessage = null) {
+	displayEncryptionKeyInputWindow('Enter Encryption Key', 'Enter the encryption key to decrypt the messages', initialErrorMessage);
 
-	const encryptionKeyInputWindow = document.getElementById('encryption-key-input-window');
-	const submitButton = document.getElementById('encryption-key-input-submit-button');
-	const inputBox = document.getElementById('encryption-key-input');
+	const encryptionKeyInputWindow = document.getElementById('encryption-key-window');
+	const submitButton = document.getElementById('encryption-key-window-submit-button');
+	const inputBox = document.getElementById('encryption-key-window-input-box');
+	const messageElement = document.getElementById('encryption-key-window-message-id');
 
-	if (!submitButton || !inputBox) { return; }
-
-	try {
-		// Handle the Encryption input window submit button click
-		submitButton.addEventListener('click', (event) => {
-			event.stopPropagation();
-			const inputValue = inputBox.value;
-			if (inputValue) {
-				document.body.removeChild(encryptionKeyInputWindow);
-
-				// Send message to background script to indicate that the encryption key has been received
-				chrome.runtime.sendMessage({ action: 'encryptionKeyReceived', encryptionKey: inputValue });
-			} else {
-				showModalNotification('Missing Key', 'No key has been entered. Please enter an encryption key');
-			}
-		});
-	} catch (error) {
-		console.error(error);
-		showModalNotification('Error', error.message);
+	if (!submitButton || !inputBox || !encryptionKeyInputWindow || !messageElement) {
+		console.error("Failed to find elements for encryption key modal in requestEncryptionKey.");
+		return;
 	}
+
+	// Use a named function for the listener to allow removal
+	const handleKeySubmit = (event) => {
+		event.stopPropagation();
+		const inputValue = inputBox.value;
+		if (inputValue) {
+			if (encryptionKeyInputWindow.parentNode) {
+				encryptionKeyInputWindow.remove();
+			}
+			// Remove listener to prevent memory leaks
+			submitButton.removeEventListener('click', handleKeySubmit);
+
+			// Send message to background script
+			console.log("Sending encryptionKeyReceived to background.");
+			chrome.runtime.sendMessage({ action: 'encryptionKeyReceived', encryptionKey: inputValue });
+		} else {
+			// Show basic feedback in the existing modal without closing it
+			messageElement.textContent = 'Please enter an encryption key';
+			messageElement.style.color = 'red';
+			messageElement.style.fontWeight = 'bold';
+			inputBox.focus();
+		}
+	};
+
+	submitButton.removeEventListener('click', handleKeySubmit);
+	submitButton.addEventListener('click', handleKeySubmit);
 }
 
 /**
@@ -125,7 +244,7 @@ async function setPayload(request) {
 	}
 
 	try {
-		removeExistingElements(message.messageId);
+		removeExistingExtensionElements(message.messageId);
 		/*
 			Currently, queryMessagesFromQueue() in finMessages.js file returns all msgs on a queue. 
 			The UI contains only 100 messages or `list-row-menu_Messages_Queued_${request.messageId =< 100 elements.}`.
@@ -151,16 +270,16 @@ async function setPayload(request) {
  * 
  * @param {string} messageId - The ID of the message.
  */
-function removeExistingElements(messageId) {
-	const elementsToRemove = [
-		`application-properties-container-${messageId}`,
-		`queue-extension-container-${messageId}`,
-		`line-${messageId}`
-	];
-	elementsToRemove.forEach(id => {
-		const element = document.getElementById(id);
-		if (element) element.remove();
-	});
+function removeExistingExtensionElements(messageId) {
+	const metadataContainer = document.getElementById(`${METADATA_CONTAINER_ID}-${messageId}`);
+	if (metadataContainer) {
+		metadataContainer.remove();
+	}
+
+	const payloadContainer = document.getElementById(`${PAYLOAD_CONTAINER_ID}-${messageId}`);
+	if (payloadContainer) {
+		payloadContainer.remove();
+	}
 }
 
 /**
@@ -184,7 +303,7 @@ function findElementToAppendPayloadContainer(dataRow) {
 */
 function createMetaDataContainer(expandedDiv, messageId, metadataPropList) {
 	let metaDataContainer = `
-		<div id="queue-msg-conatiner-${messageId}" class="expanded-detail expanded-content">
+		<div id="${METADATA_CONTAINER_ID}-${messageId}" class="expanded-detail expanded-content">
 			<div class="flow-column">
 				<div class="flow-row">
 					<span class="attr-label au-target" id="app-msg-id-lbl-${messageId}">Application Message ID:</span>
@@ -223,7 +342,7 @@ function createPayloadContainer(expandedDiv, messageId, userProps, queuedMsg) {
 	let queueMsgCpyLblId = `queue-msg-copy-lbl-${messageId}`;
 
 	let messageContainer = `
-		<div id="queue-extension-container-${messageId}" class="expanded-detail expanded-content">
+		<div id="${PAYLOAD_CONTAINER_ID}-${messageId}" class="expanded-detail expanded-content">
 	`;
 
 	// Append the queued message container if queuedMsg is not empty
@@ -297,12 +416,13 @@ function createPayloadContainer(expandedDiv, messageId, userProps, queuedMsg) {
  * The password is stored in the Chrome local storage.
  * 
  * @param {string} title - The title to display in the modal notification.
- * @param {string} message - The message to display in the modal notification.
+ * @param {string} defaultMessage - The message to display in the modal notification.
+ * @param {string} [errorMessage=null] - An error message to display in the modal notification.
  */
-function displayEncryptionKeyInputWindow(title, message) {
+function displayEncryptionKeyInputWindow(title, defaultMessage = '', errorMessage = null) {
 	// Create the modal backdrop
 	const modal = document.createElement('div');
-	modal.id = 'encryption-key-input-window';
+	modal.id = 'encryption-key-window';
 	modal.style.position = 'fixed';
 	modal.style.width = '100%';
 	modal.style.height = '100%';
@@ -326,12 +446,21 @@ function displayEncryptionKeyInputWindow(title, message) {
 	const heading = document.createElement('h1');
 	heading.innerHTML = title;
 	heading.style.marginBottom = '10px';
+	// Create the message element
 	const messageElement = document.createElement('p');
-	messageElement.id = 'modal-message';
-	messageElement.innerHTML = message;
+	messageElement.id = 'encryption-key-window-message-id';
+    if (errorMessage) {
+        messageElement.textContent = errorMessage;
+        messageElement.style.color = 'red';
+        messageElement.style.fontWeight = 'bold';
+    } else {
+        messageElement.textContent = defaultMessage;
+        messageElement.style.color = 'black';
+        messageElement.style.fontWeight = 'normal';
+    }
 	// Create the input field
 	const inputElement = document.createElement('input');
-	inputElement.id = 'encryption-key-input';
+	inputElement.id = 'encryption-key-window-input-box';
 	inputElement.type = 'password';
 	inputElement.style.display = 'block';
 	inputElement.style.margin = '10px auto';
@@ -363,7 +492,7 @@ function displayEncryptionKeyInputWindow(title, message) {
 	});
 	// Create the submit button
 	const submitButton = document.createElement('button');
-	submitButton.id = 'encryption-key-input-submit-button';
+	submitButton.id = 'encryption-key-window-submit-button';
 	submitButton.textContent = 'Submit';
 	submitButton.style.display = 'block';
 	submitButton.style.margin = '20px auto 0';
@@ -398,6 +527,7 @@ function displayEncryptionKeyInputWindow(title, message) {
 function showModalNotification(title, message) {
 	// Create the modal backdrop
 	const modal = document.createElement('div');
+	modal.id = 'modal-notification-id';
 	modal.style.position = 'fixed';
 	modal.style.width = '100%';
 	modal.style.height = '100%';
@@ -425,7 +555,7 @@ function showModalNotification(title, message) {
 	heading.style.marginBottom = '10px';
 
 	const messageElement = document.createElement('p');
-	messageElement.id = 'modal-message';
+	messageElement.id = 'modal-message-notification-id';
 	messageElement.innerHTML = message;
 
 	// Create the close button
@@ -517,28 +647,34 @@ function copyToClipboard(textElementId, labelElementId) {
 }
 
 /**
- * Checks if a variable is empty.
- *
+ * Checks if a variable is empty. A variable is considered empty if it is not a boolean and meets one of the following conditions:
+ * - It is falsy and not the number 0.
+ * - It is an array with a length of 0.
+ * - It is an object with no own properties, excluding Date instances.
+ * 
  * @param {*} paramVar - The variable to check.
- * @returns {boolean} - True if the variable is empty, false otherwise.
+ * @returns {boolean} True if the variable is empty, false otherwise.
  */
 function isEmpty(paramVar) {
-	if (typeof paramVar !== "boolean") {
+	var blEmpty = false;
+	if (typeof paramVar != "boolean") {
 		if (!paramVar) {
 			if (paramVar !== 0) {
-				return true;
+				blEmpty = true;
 			}
-		} else if (Array.isArray(paramVar)) {
+		}
+		else if (Array.isArray(paramVar)) {
 			if (paramVar && paramVar.length === 0) {
-				return true;
+				blEmpty = true;
 			}
-		} else if (typeof paramVar === 'object') {
-			if (paramVar && JSON.stringify(paramVar) === '{}') {
-				return true;
+		}
+		else if (typeof paramVar == 'object') {
+			if (paramVar === null) {
+				blEmpty = true;
 			} else if (paramVar && Object.keys(paramVar).length === 0 && !(paramVar instanceof Date)) {
-				return true;
+				blEmpty = true;
 			}
 		}
 	}
-	return false;
+	return blEmpty;
 }

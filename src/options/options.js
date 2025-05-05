@@ -1,8 +1,19 @@
 
 import * as utils from './optionUtils.js';
-import * as crypt from './optionEncryptionUtils.js';
+import * as crypt from '../lib/encryptionUtils.js';
+import { isEmpty, isValidEncryptionKey, isValidMsgVpnUrl, isValidSmfHostProtocol } from '../lib/sharedUtils.js';
+import '../lib/solclient.js';
 
-// ########################################################################################
+
+// --- Optional Verification ---
+// Add this check after the imports to ensure the global got set
+if (typeof self.solace === 'undefined' || typeof self.solace.SolclientFactory !== 'object') {
+  console.error("Options Page: Global self.solace API object not found after import!");
+  // You might want to disable the "Test Connection" button or show an error here
+  // if the library fails to initialize.
+} else {
+  console.log("Options Page: Global self.solace API object seems available.");
+}
 
 // DOM triggers
 
@@ -10,7 +21,7 @@ import * as crypt from './optionEncryptionUtils.js';
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) {
+    if (isEmpty(encryptionKey)) {
       promptUserForEncryptionKey();
     } else {
       populateUI();
@@ -33,7 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Add event listeners to the 'Save', 'New Connection' and 'Delete buttons
     document.getElementById('delete').addEventListener('click', deleteOption);
-    document.getElementById('save').addEventListener('click', saveOption);
+    document.getElementById('save').addEventListener('click', saveConnection);
     document.getElementById('newConnection').addEventListener('click', createBlankConnection);
 
     // Creates and downloads a JSON document containing the exported connections
@@ -212,7 +223,7 @@ async function populateUI() {
 
     // Return if there are no connections saved in local storage
     let connections = await chrome.storage.local.get();
-    if (utils.isEmpty(connections)) { return; }
+    if (isEmpty(connections)) { return; }
 
     await initSelectedConnection(connections);
     initConnectionsContainer(connections);
@@ -224,24 +235,24 @@ async function populateUI() {
 }
 
 /**
- * Saves the user-defined options for the application into local storage.
+ * Saves the user-defined connection for the application into local storage.
  * This function is typically called when the user submits a form containing various settings or preferences.
  * 
  * Steps performed by the function:
  * 1. Collects the values from the form fields specified in the UI.
- * 2. Constructs an object, `options`, containing the key-value pairs of the settings.
+ * 2. Constructs an object, `connection`, containing the key-value pairs of the settings.
  * 3. Validates the collected values to ensure they meet the application's requirements.
  *    - This may involve checking for empty fields, ensuring values are within acceptable ranges, etc.
- * 4. If validation passes, the `options` object is serialized (e.g., converted to a JSON string) and saved to local storage.
+ * 4. If validation passes, the `connection` object is serialized (e.g., converted to a JSON string) and saved to local storage.
  * 5. The user is notified of the successful save operation, often through a UI element such as a toast notification or modal dialog.
  * 6. In case of validation failure or other errors, appropriate feedback is provided to the user, and the save operation is aborted.
  * 
  * Note:
- * - The actual keys and structure of the `options` object will vary based on the application's specific settings and requirements.
+ * - The actual keys and structure of the `connection` object will vary based on the application's specific settings and requirements.
  * - Error handling should be implemented to catch and manage exceptions, especially those related to local storage limits or permissions.
  */
 
-async function saveOption() {
+async function saveConnection() {
   try {
     // Set DOM connection ID
     utils.setValue('connectionId', utils.getValue('connectionId') || crypto.randomUUID());
@@ -271,21 +282,22 @@ async function saveOption() {
     };
 
     // Validate JavaScript API Endpoint URL
-    if (!utils.isValidSmfHostProtocol(currentConnection.smfHost)) {
+    if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
       utils.showModalNotification('Invalid protocol', 'For the JavaScript API Enpoint field, please use one of ws://, wss://, http://, https://');
       return;
     }
 
     // Validate Message VPN URL
-    if (!utils.isValidMsgVpnUrl(currentConnection.msgVpnUrl)) {
+    if (!isValidMsgVpnUrl(currentConnection.msgVpnUrl)) {
       utils.showModalNotification('Invalid URL', 'For the Message VPN URL filed, please use a URL matching https://{{your_domain}}.messaging.solace.cloud or http(s?)://localhost:{{your_port}}/');
       return;
     }
 
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) { return; }
+    if (isEmpty(encryptionKey)) { return; }
 
     // Before saving the connection, test the connection to ensure it is valid
+    // TODO: Refactor testConnection to return a Promise and await it here
     testConnection();
 
     // Decode base64 encryption key to array buffer
@@ -300,23 +312,18 @@ async function saveOption() {
 
     const connections = await chrome.storage.local.get();
 
-    // Deselect all connections if the current connection is selected
-    if (currentConnection.selected === true) {
-      Object.entries(connections).forEach(([connectionId, connection]) => {
-        connection.selected = false;
-      });
-    }
+    // Deselect all connections
+    Object.values(connections).forEach(connection => connection.selected = false);
 
     connections[currentConnection.id] = currentConnection;
-    chrome.storage.local.set(connections);
+    await chrome.storage.local.set(connections);
 
     // Remove connections container
     document.getElementById('connections').innerHTML = '';
+    await initSelectedConnection(connections); // Repopulate form with saved (potentially new) data
+    initConnectionsContainer(connections); // Repopulate connections container
 
     utils.showToastNotification('Connection saved successfully!');
-
-    await initSelectedConnection(connections);
-    initConnectionsContainer(connections);
 
   } catch (error) {
     utils.handleError(error);
@@ -401,9 +408,9 @@ async function deleteOption() {
 function testConnection() {
 
   // Initialize the Solace factory
-  const factoryProps = new solace.SolclientFactoryProperties();
-  factoryProps.profile = solace.SolclientFactoryProfiles.version10;
-  solace.SolclientFactory.init(factoryProps);
+  const factoryProps = new self.solace.SolclientFactoryProperties();
+  factoryProps.profile = self.solace.SolclientFactoryProfiles.version10;
+  self.solace.SolclientFactory.init(factoryProps);
 
   // Get the active connection
   const currentConnection = {
@@ -421,7 +428,7 @@ function testConnection() {
   }
 
   // Validate URL protocol
-  if (!utils.isValidSmfHostProtocol(currentConnection.smfHost)) {
+  if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
     utils.showModalNotification('Invalid protocol', 'For the Message VPN URL filed, please use one of ws://, wss://, http://, https://');
     return;
   }
@@ -429,7 +436,7 @@ function testConnection() {
   let session = null;
   try {
     // Login to Solace
-    session = solace.SolclientFactory.createSession({
+    session = self.solace.SolclientFactory.createSession({
       url: currentConnection.smfHost,
       vpnName: currentConnection.msgVpn,
       userName: currentConnection.userName,
@@ -441,21 +448,21 @@ function testConnection() {
     utils.showToastNotification(error.message, 'error', 7000);
   }
   // define session event listeners
-  session.on(solace.SessionEventCode.UP_NOTICE, function (sessionEvent) {
+  session.on(self.solace.SessionEventCode.UP_NOTICE, function (sessionEvent) {
     console.log('=== Successfully connected and ready to view messages. ===');
     utils.showToastNotification('Successfully connected and ready to view messages.', 'success', 7000);
   });
-  session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, function (sessionEvent) {
+  session.on(self.solace.SessionEventCode.CONNECT_FAILED_ERROR, function (sessionEvent) {
     switch (sessionEvent.errorSubcode) {
-      case solace.ErrorSubcode.MESSAGE_VPN_NOT_ALLOWED:
+      case self.solace.ErrorSubcode.MESSAGE_VPN_NOT_ALLOWED:
         console.error(sessionEvent.infoStr, `The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`);
         utils.showToastNotification(`The Message VPN name configured for the session does not exist. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
-      case solace.ErrorSubcode.LOGIN_FAILURE:
+      case self.solace.ErrorSubcode.LOGIN_FAILURE:
         console.error(sessionEvent.infoStr, `The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`);
         utils.showToastNotification(`The username or password is incorrect. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
-      case solace.ErrorSubcode.CLIENT_ACL_DENIED:
+      case self.solace.ErrorSubcode.CLIENT_ACL_DENIED:
         console.error(sessionEvent.infoStr, `Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`);
         utils.showToastNotification(`Client IP address/netmask combination not on the ACL (Access Control List) profile Exception Address list. | Solace Error Code: ${sessionEvent.errorSubcode}`, 'error', 7000);
         break;
@@ -465,7 +472,7 @@ function testConnection() {
         break;
     }
   });
-  session.on(solace.SessionEventCode.DISCONNECTED, function (sessionEvent) {
+  session.on(self.solace.SessionEventCode.DISCONNECTED, function (sessionEvent) {
     console.log('Disconnected.');
     if (session !== null) {
       session.dispose();
@@ -497,40 +504,6 @@ function testConnection() {
 
 
 /**
- * This function does the following:
- * 1. Displays an input window to prompt the user to enter an encryption key.
- * 2. When the user clicks the submit button, the entered key is used to re-encrypt all connection passwords.
- * 3. The new encryption key is then saved in session storage.
- */
-function changeKey() {
-  utils.displayEncryptionKeyInputWindow('Change encryption key', 'All connection passwords will be re-encrypted using the new key.', true);
-  const encryptionKeyInputWindow = document.getElementById('encryption-key-input-window');
-  const submitButton = document.getElementById('encryption-key-input-submit-button');
-  const inputBox = document.getElementById('encryption-key-input');
-
-  if (!submitButton || !inputBox) { return; }
-
-  // Handle the submit button click
-  submitButton.addEventListener('click', async (event) => {
-    try {
-      event.stopPropagation();
-      const inputValue = inputBox.value;
-      if (inputValue) {
-        await reencryptConnections(inputValue);
-        document.body.removeChild(encryptionKeyInputWindow);
-        utils.showToastNotification('Encryption key saved successfully!', 'success', 7000);
-      } else {
-        utils.showModalNotification('Missing Key', 'No key has been entered. Please enter an encryption key');
-      }
-    } catch (error) {
-      crypt.setEncryptionKey(''); // If an error occurs, clear the encryption key to prevent new key from being saved.
-      document.body.removeChild(encryptionKeyInputWindow);
-      utils.handleError(error);
-    }
-  });
-}
-
-/**
  * Displays an input window to prompt the user to enter an encryption key.
  * 
  * This function does the following:
@@ -539,44 +512,185 @@ function changeKey() {
  */
 function promptUserForEncryptionKey() {
   utils.displayEncryptionKeyInputWindow('Enter Encryption Key', 'Enter the encryption key to decrypt the messages.', false, true);
-  const encryptionKeyInputWindow = document.getElementById('encryption-key-input-window');
-  const submitButton = document.getElementById('encryption-key-input-submit-button');
-  const resetButton = document.getElementById('reset-option-btn');
-  const inputBox = document.getElementById('encryption-key-input');
+  const encryptionKeyInputWindow = document.getElementById('encryption-key-window');
+  const submitButton = document.getElementById('encryption-key-window-submit-button');
+  const resetButton = document.getElementById('encryption-key-window-reset-button');
+  const inputBox = document.getElementById('encryption-key-window-input-box');
+  const messageElement = document.getElementById('encryption-key-window-message-id');
 
-  if (!submitButton || !inputBox) { return; }
+  if (!encryptionKeyInputWindow || !submitButton || !inputBox || !resetButton || !messageElement) {
+    console.error("Could not find elements within the encryption key input window.");
+    utils.showModalNotification("UI Error", "Could not create the encryption key input properly.");
+    return;
+  }
 
-  // Handle the submit button click
-  submitButton.addEventListener('click', async (event) => {
-    event.stopPropagation();
-    const inputValue = inputBox.value;
-    if (!utils.isValidEncryptionKey(inputValue)) {
-      utils.showModalNotification('Invalid Key', 'The encryption key must be at least 8 characters long, at least 1 capital letter, contain at least 1 number, and at least 1 symbol.');
-      return;
+  // Handles the submit button click event
+  const handleSubmit = async (event) => {
+    try {
+      event.stopPropagation();
+      const inputValue = inputBox.value;
+
+      if (isEmpty(inputValue)) {
+        messageElement.textContent = 'Missing Key: Please enter an encryption key.';
+        messageElement.style.color = 'red';
+        messageElement.style.fontWeight = 'bold';
+        inputBox.focus();
+        return;
+      }
+
+      // Validate Key Format
+      if (!isValidEncryptionKey(inputValue)) {
+        messageElement.textContent = 'Invalid Key: Must be >= 8 chars, with uppercase, number, and symbol.';
+        messageElement.style.color = 'red';
+        messageElement.style.fontWeight = 'bold';
+        inputBox.focus(); // Keep focus on input
+        return;
+      }
+
+      // Generate a SHA-256 hash of the encryption key
+      const potentialKeyHash = await crypt.generateSHA256Hash(inputValue);
+
+      // Attempt to validate the key against existing data
+      let keyIsValid = false;
+      const connections = await chrome.storage.local.get();
+      let firstEncryptedConnection = null;
+
+      // Find the first encrypted connection in local storage
+      for (const id in connections) {
+        if (connections[id] && typeof connections[id] === 'object' && connections[id].encrypted) {
+          firstEncryptedConnection = connections[id];
+          break;
+        }
+      }
+
+      // Attempt to validate the key against the existing connection data
+      if (firstEncryptedConnection) {
+        try {
+          // Attempt decryption of actual connection data
+          await crypt.decryptString(
+            firstEncryptedConnection.password,
+            firstEncryptedConnection.iv,
+            potentialKeyHash
+          );
+          keyIsValid = true;
+        } catch (decryptionError) {
+          console.warn("Descryption failed. Key is likely invalid.");
+        }
+      } else {
+        // No encrypted connections found. Trust first key entry.
+        console.log("No encrypted connections found. Accepting first key entry.");
+        keyIsValid = true;
+      }
+
+      // If the key is valid, save it to session storage
+      if (keyIsValid) {
+        const base64HashedKey = crypt.arrayBufferToBase64(potentialKeyHash);
+        await crypt.setEncryptionKey(base64HashedKey);
+
+        // Remove modal, cleanup listeners, reload UI
+        if (encryptionKeyInputWindow.parentNode) { encryptionKeyInputWindow.remove(); }
+        submitButton.removeEventListener('click', handleSubmit);
+        resetButton.removeEventListener('click', handleReset);
+        populateUI();
+
+      } else {
+        // Key is invalid - Show error in modal, keep it open
+        messageElement.textContent = 'Incorrect Key: Failed to decrypt existing data. Please try again.';
+        messageElement.style.color = 'red';
+        messageElement.style.fontWeight = 'bold';
+        inputBox.select();
+        inputBox.focus();
+        return; // Stop processing
+      }
+
+    } catch (error) {
+      console.error("Error during encryption key submission:", error);
+      utils.handleError(error);
+      if (encryptionKeyInputWindow.parentNode) {
+        encryptionKeyInputWindow.remove();
+      }
     }
-    if (utils.isEmpty(inputValue)) {
-      utils.showModalNotification('Missing Key', 'No key has been entered. Please enter an encryption key');
-      return;
-    }
+  };
 
-    // Generate a SHA-256 hash of the encryption key and save it in session storage
-    const hashedKey = await crypt.generateSHA256Hash(inputValue);
-
-    const base64HashedKey = crypt.arrayBufferToBase64(hashedKey);
-    await crypt.setEncryptionKey(base64HashedKey);
-
-    document.body.removeChild(encryptionKeyInputWindow);
-    // At this point, we do not know if the encryption key is correct, so the UI should be reloaded.
-    // populateUI() will load and decrypt the connections using the encryption key.
-    // If the key is incorrect, the decryption will fail, and the user will be prompted to enter the key again.
-    populateUI();
-  });
-
-  resetButton.addEventListener('click', async (event) => {
+  // Reset Button Listener (needs defined handleReset or direct logic)
+  const handleReset = async (event) => {
     event.stopPropagation();
+    submitButton.removeEventListener('click', handleSubmit);
+    resetButton.removeEventListener('click', handleReset);
     resetExtension();
-  });
-}
+  };
+
+  // Attach Listeners (as before)
+  submitButton.removeEventListener('click', handleSubmit);
+  submitButton.addEventListener('click', handleSubmit);
+  resetButton.removeEventListener('click', handleReset);
+  resetButton.addEventListener('click', handleReset);
+} // End of promptUserForEncryptionKey
+
+
+
+/**
+ * This function does the following:
+ * 1. Displays an input window to prompt the user to enter an encryption key.
+ * 2. When the user clicks the submit button, the entered key is used to re-encrypt all connection passwords.
+ * 3. The new encryption key is then saved in session storage.
+ */
+function changeKey() {
+  utils.displayEncryptionKeyInputWindow('Change encryption key', 'All connection passwords will be re-encrypted using the new key.', true);
+  const encryptionKeyInputWindow = document.getElementById('encryption-key-window');
+  const submitButton = document.getElementById('encryption-key-window-submit-button');
+  const inputBox = document.getElementById('encryption-key-window-input-box');
+  const messageElement = document.getElementById('encryption-key-window-message-id');
+
+  if (!encryptionKeyInputWindow || !submitButton || !inputBox || !messageElement) { return; }
+
+  const handleChangeSubmit = async (event) => {
+    try {
+      event.stopPropagation();
+      const newKeyValue = inputBox.value;
+
+      if (isEmpty(newKeyValue)) {
+        messageElement.textContent = 'Please enter a new encryption key.';
+        messageElement.style.color = 'red';
+        messageElement.style.fontWeight = 'bold';
+        inputBox.focus();
+        return;
+      }
+      // Validate new key format
+      if (!isValidEncryptionKey(newKeyValue)) {
+        messageElement.textContent = 'Invalid Key: Must be >= 8 chars, with uppercase, number, and symbol.';
+        messageElement.style.color = 'red';
+        messageElement.style.fontWeight = 'bold';
+        inputBox.focus();
+        return;
+      }
+
+      // Re-encryption process will throw an error if the key is invalid
+      const newHashedKey = await reencryptConnections(newKeyValue);
+
+      // Save the new base64 encoded hashed key to session
+      const base64NewKeyHash = crypt.arrayBufferToBase64(newHashedKey);
+      await crypt.setEncryptionKey(base64NewKeyHash);
+
+      utils.showToastNotification('Encryption key changed successfully!', 'success', 7000);
+
+      encryptionKeyInputWindow.remove();
+
+    } catch (error) {
+      // Catch errors from reencryptConnections or hashing
+      console.error("Error changing encryption key:", error);
+      messageElement.textContent = `Error: ${error.message}`;
+      messageElement.style.color = 'red';
+      messageElement.style.fontWeight = 'bold';
+      inputBox.focus();
+    }
+  };
+
+  submitButton.removeEventListener('click', handleChangeSubmit);
+  submitButton.addEventListener('click', handleChangeSubmit);
+
+} // End of changeKey
+
 
 /**
  * Exports the connections to a JSON file.
@@ -589,25 +703,29 @@ function promptUserForEncryptionKey() {
  */
 async function exportConnections() {
   try {
-    const connections = await chrome.storage.local.get();
     // Validate the encryption key
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) { return; }
+    if (isEmpty(encryptionKey)) { return; }
+
+
+    const connections = await chrome.storage.local.get();
+    if (isEmpty(connections)) {
+      utils.showModalNotification('No Connections', 'No connections to export.');
+      return;
+    }
 
     for (const connectionId in connections) {
       const connection = connections[connectionId];
-      connection.selected = false;
-      connection.iv = null;
-      connection.encrypted = false;
-
-      if (!connection.encrypted) { continue; }
 
       // Base64 decode the encryption key
       const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
-
       await crypt.decryptString(connection.password, connection.iv, encryptionKeyArrayBuffer).then((decryptedData) => {
         connection.password = decryptedData;
       });
+
+      connection.selected = false;
+      connection.iv = null;
+      connection.encrypted = false;
     }
 
     const blob = new Blob([JSON.stringify(connections)], { type: 'application/json' });
@@ -646,7 +764,7 @@ async function importFile(file) {
 
   try {
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) { return; }
+    if (isEmpty(encryptionKey)) { return; }
     const reader = new FileReader();
     reader.onload = async (e) => {
       const connections = JSON.parse(e.target.result);
@@ -659,7 +777,7 @@ async function importFile(file) {
       // Encrypt connection passwords
       for (const connectionId in connections) {
         const connection = connections[connectionId];
-        if (!connection.encrypted) { continue; }
+        if (connection.encrypted) { continue; } // Skip already encrypted connections
 
         // Base64 decode the encryption key
         const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
@@ -699,7 +817,14 @@ function resetExtension() {
 
     const resetConfirmationWindow = document.getElementById('reset-confirmation-window');
     const resetConfirmationButton = document.getElementById('reset-confirmation-submit-button');
-    resetConfirmationButton.addEventListener('click', async (event) => {
+
+    if (!resetConfirmationWindow || !resetConfirmationButton) {
+      console.error("Could not find elements within the reset confirmation window.");
+      utils.showModalNotification("UI Error", "Could not create the reset confirmation window properly.");
+      return;
+    }
+    // Handle the reset confirmation button click
+    const handleResetConfirmation = async (event) => {
       event.stopPropagation();
       chrome.storage.local.clear();
       chrome.storage.sync.clear();
@@ -707,7 +832,11 @@ function resetExtension() {
       document.body.removeChild(resetConfirmationWindow);
       utils.showToastNotification('Extension has been reset successfully!', 'success', 7000);
       utils.showModalNotification('Extension Reset', 'Extension has been reset successfully.', true);
-    });
+    }
+
+    resetConfirmationButton.removeEventListener('click', handleResetConfirmation);
+    resetConfirmationButton.addEventListener('click', handleResetConfirmation);
+
   } catch (error) {
     utils.handleError(error);
   }
@@ -718,7 +847,7 @@ function resetExtension() {
 // General Functions
 
 /**
- * Displays the options from local storage and populates the input fields with the saved values.
+ * Displays the connection from local storage and populates the input fields with the saved values.
  */
 async function getConnection() {
   try {
@@ -729,7 +858,7 @@ async function getConnection() {
 
     let connection = await chrome.storage.local.get(this.id);
     // Checks if the retrieved connection object is not empty
-    if (utils.isEmpty(connection)) {
+    if (isEmpty(connection)) {
       // Clears the form fields if the connection object is empty (e.g., new connection)
       clearConnectionFields();
       utils.setValue('connectionId', this.id);
@@ -742,7 +871,7 @@ async function getConnection() {
 
     // Validate the encryption key
     const encryptionKey = await crypt.getEncryptionKey();
-    if (utils.isEmpty(encryptionKey)) { return; }
+    if (isEmpty(encryptionKey)) { return; }
     if (connection.encrypted) {
       // Decode base64 encryption key to array buffer
       const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
@@ -857,11 +986,11 @@ async function initSelectedConnection(connections) {
     }
   });
 
-  if (utils.isEmpty(selectedConnection)) { return; }
+  if (isEmpty(selectedConnection)) { return; }
 
   // Validate the encryption key
   const encryptionKey = await crypt.getEncryptionKey();
-  if (utils.isEmpty(encryptionKey)) { return; }
+  if (isEmpty(encryptionKey)) { return; }
   if (selectedConnection.encrypted) {
     // Decode base64 encryption key to array buffer
     const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
@@ -954,38 +1083,69 @@ function validateMandatoryConnectionFieldValues() {
 
 /**
  * Reencrypts all connection passwords using the new encryption key.
- * 
- * @param {string} newEncryptionKey - The new encryption key to use for re-encryption.
+ * @param {string} newEncryptionKeyString - The plaintext new key entered by the user.
+ * @returns {Promise<ArrayBuffer>} The ArrayBuffer hash of the new key if successful.
+ * @throws {Error} If the existing key isn't found or re-encryption fails critically.
  */
-async function reencryptConnections(newEncryptionKey) {
+async function reencryptConnections(newEncryptionKeyString) {
   const connections = await chrome.storage.local.get();
-  if (utils.isEmpty(connections)) { return; }
-  // Generate a new SHA-256 hash for the new encryption key
-  // This is required as encryptString expects a SHA-256 hash key
-  const newEncryptionKeyHash = await crypt.generateSHA256Hash(newEncryptionKey);
+  if (isEmpty(connections)) { return; } // Nothing to re-encrypt.
 
-  // Retreive hashed encryption key from session storage
-  const base64HashKey = await crypt.getEncryptionKey();
-
-  // Decode the base64 hash key to an array buffer.
-  // This is required as decryptString expects an array buffer key.
-  const existingEncryptionKey = crypt.base64ToArrayBuffer(base64HashKey);
-
-  // Re-encrypt all connection passwords using the new encryption key
-  for (const connectionId in connections) {
-    const connection = connections[connectionId];
-    if (!connection.encrypted) { continue; }
-    await crypt.decryptString(connection.password, connection.iv, existingEncryptionKey).then((decryptedData) => {
-      connection.password = decryptedData;
-    });
-    await crypt.encryptString(connection.password, newEncryptionKeyHash).then((encryptedData) => {
-      connection.password = encryptedData.encryptedString;
-      connection.iv = encryptedData.iv;
-    });
+  // Retrieve existing hashed encryption key from session storage to decrypt existing passwords
+  const base64ExistingHashKey = await crypt.getEncryptionKey();
+  if (isEmpty(base64ExistingHashKey)) {
+    // If the existing hash key is not found, we cannot re-encrypt the passwords
+    // This shouldn't happen if the user is following the flow correctly, but handle it gracefully
+    throw new Error("Cannot re-encrypt: Existing encryption key not found in session.");
   }
-  // Encode the new encryption key hash to base64 and save it.
-  const base64KeyHash = crypt.arrayBufferToBase64(newEncryptionKeyHash);
-  await crypt.setEncryptionKey(base64KeyHash);
+  const existingHashKey = crypt.base64ToArrayBuffer(base64ExistingHashKey);
 
-  await chrome.storage.local.set(connections);
+  // Generate hash for the new key string
+  const newHashedKey = await crypt.generateSHA256Hash(newEncryptionKeyString);
+  console.log("New key hash generated.");
+
+  let encryptionsSuccessful = false;
+
+  // Re-encrypt all connection passwords using the new encryption hash key
+  for (const connectionId in connections) {
+
+    // Skip if the connection is not an object or doesn't have the required properties
+    const connection = connections[connectionId];
+    if (!connection || typeof connection !== 'object' || !connection.encrypted || !connection.password || !connection.iv) {
+      continue;
+    }
+
+    let decryptedPassword;
+    try {
+      // Decrypt with existing hash key
+      decryptedPassword = await crypt.decryptString(connection.password, connection.iv, existingHashKey);
+    } catch (decryptError) {
+      console.error(`Failed to decrypt connection '${connection.connectionName}' during key change. Skipping re-encryption for this entry. Error: ${decryptError.message}`);
+      continue;
+    }
+
+    try {
+      // Encrypt with new hash key
+      const { encryptedString: newEncryptedPassword, iv: newIv } = await crypt.encryptString(decryptedPassword, newHashedKey);
+      connection.password = newEncryptedPassword;
+      connection.iv = newIv;
+      connection.encrypted = true;
+
+      encryptionsSuccessful = true;
+
+    } catch (encryptError) {
+      console.error(`Failed to re-encrypt connection '${connection.connectionName}' during key change. Skipping update for this entry. Error: ${encryptError.message}`);
+      continue;
+    }
+  }
+
+  // Save the updated connections back to local storage if any re-encryption was made
+  if (encryptionsSuccessful) {
+    await chrome.storage.local.set(connections);
+    console.log("Re-encryption of connections completed successfully.");
+  } else {
+    console.log("No connections required re-encryption or updates failed.");
+  }
+
+  return newHashedKey; // Return the new hashed key for further use if needed
 }
