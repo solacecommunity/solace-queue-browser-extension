@@ -99,7 +99,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         });
 
         // Get domain, port and protocol from URL using regex
-        const domainMatch = url.match(/^https:\/\/(.*).messaging.solace.cloud:\d+|^http(s?):\/\/localhost:\d+/);
+        const domainMatch = url.match(/^https:\/\/(.*).messaging.solace.cloud:\d+|^http(s)?:\/\/(.*).local:\d+|^http(s?):\/\/localhost:\d+/);
         if (!domainMatch) {
             sendErrorToPage('URL Error', 'Could not extract domain from the current page URL.');
             return;

@@ -1,6 +1,6 @@
 
 // --- Constants and Variables ---
-const QUEUE_MESSAGES_PAGE_PATTERN = /^https:\/\/.*\.messaging\.solace\.cloud:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$|^http(s?):\/\/localhost:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$/;
+const QUEUE_MESSAGES_PAGE_PATTERN = /^https:\/\/.*\.messaging\.solace\.cloud:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$|^http(s)?:\/\/.*\.local:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$|^http(s?):\/\/localhost:\d+\/.*\/endpoints\/queues\/.*\/messages.*?$/;
 const BUTTON_ID = 'findMsgsExtensionButtonId';
 const DELAY = 500; // Delay in ms for DOM checks
 
