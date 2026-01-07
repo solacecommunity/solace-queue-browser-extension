@@ -273,7 +273,13 @@ async function queryMessagesFromQueue(dynamicQueueName) {
 
                 if (activeConnection.showMsgPayload) {
                     // TODO: Check message size and handle large messages accordingly
-                    queuedMsg = message.getBinaryAttachment();
+                    if (message.getType() === solace.MessageType.TEXT) {
+                        // TextMessage - use SDT container (recommended for JSON)
+                        queuedMsg = message.getSdtContainer().getValue();
+                    } else {
+                        // BytesMessage - use binary attachment
+                        queuedMsg = message.getBinaryAttachment();
+                    }
                 }
 
                 // Send the message to the page
@@ -345,6 +351,50 @@ async function queryMessagesFromQueue(dynamicQueueName) {
     }
 }
 
+function getPayloadType(message) {
+    const type = message.getType();
+
+    if (type === solace.MessageType.BINARY) {
+        return "binary";
+    }
+
+    if (type === solace.MessageType.MAP) {
+        return "map";
+    }
+
+    if (type === solace.MessageType.STREAM) {
+        return "stream";
+    }
+
+    if (type === solace.MessageType.TEXT) {
+        return "text";
+    }
+
+    return "unknown";    
+}
+
+function getPayload(message) {
+    const type = message.getPayloadType();
+    const payload = null;
+    if (type === solace.MessagePayloadType.STRING) {
+        payload = message.getPayloadAsString();
+    }
+
+    if (type === solace.MessagePayloadType.BINARY) {
+        const bytes = message.getBinaryAttachment();
+        payload = new TextDecoder("utf-8").decode(bytes);
+    }
+
+    if (type === solace.MessagePayloadType.XML) {
+        payload = message.getXmlContent();
+    }
+
+    if (type === solace.MessagePayloadType.SDT_CONTAINER) {
+        payload = message.getSdtContainer();
+    }
+
+    return { type, payload };    
+}
 /**
  * Sends a message to the active page.
  *
