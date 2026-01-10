@@ -273,7 +273,13 @@ async function queryMessagesFromQueue(dynamicQueueName) {
 
                 if (activeConnection.showMsgPayload) {
                     // TODO: Check message size and handle large messages accordingly
-                    queuedMsg = message.getBinaryAttachment();
+                    if (message.getType() === solace.MessageType.TEXT) {
+                        // TextMessage - use SDT container (recommended for JSON)
+                        queuedMsg = message.getSdtContainer().getValue();
+                    } else {
+                        // BytesMessage - use binary attachment
+                        queuedMsg = message.getBinaryAttachment();
+                    }
                 }
 
                 // Send the message to the page
