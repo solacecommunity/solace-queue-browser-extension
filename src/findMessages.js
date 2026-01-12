@@ -97,7 +97,8 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             });
         });
 
-        const domainMatch = url.match(/^https:\/\/(.*).messaging.solace.cloud:\d+|^http(s?):\/\/localhost:\d+/);
+        // Get domain, port and protocol from URL using regex
+        const domainMatch = url.match(/^https:\/\/(.*).messaging.solace.cloud:\d+|^http(s)?:\/\/(.*).local:\d+|^http(s?):\/\/localhost:\d+/);
         if (!domainMatch) {
             sendErrorToPage('URL Error', 'Could not extract domain from the current page URL.');
             return;
@@ -266,7 +267,13 @@ async function queryMessagesFromQueue(dynamicQueueName) {
 
                 if (activeConnection.showMsgPayload) {
                     // TODO: Check message size and handle large messages accordingly
-                    queuedMsg = message.getBinaryAttachment();
+                    if (message.getType() === solace.MessageType.TEXT) {
+                        // TextMessage - use SDT container (recommended for JSON)
+                        queuedMsg = message.getSdtContainer().getValue();
+                    } else {
+                        // BytesMessage - use binary attachment
+                        queuedMsg = message.getBinaryAttachment();
+                    }
                 }
 
                 sendPayloadToPage({

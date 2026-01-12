@@ -1,7 +1,7 @@
 {
   "name": "Solace Queue Message Viewer",
   "description": "View the content of messages on a queue directly in the Solace Event Broker UI.",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "manifest_version": 3,
   "permissions": [
     "storage",
@@ -9,6 +9,8 @@
   ],
   "host_permissions": [
     "wss://*.messaging.solace.cloud:443/*",
+    "ws://*.local/*",
+    "wss://*.local/*",
     "ws://localhost/*",
     "wss://localhost/*"
   ],
@@ -28,6 +30,8 @@
     {
       "matches": [
         "https://*.messaging.solace.cloud:943/*",
+        "http://*.local/*",
+        "https://*.local/*",
         "http://localhost/*",
         "https://localhost/*"
       ],
