@@ -5,19 +5,17 @@ import { isEmpty, isValidEncryptionKey, isValidMsgVpnUrl, isValidSmfHostProtocol
 import '../lib/solclient.js';
 
 
-// --- Optional Verification ---
-// Add this check after the imports to ensure the global got set
+// Check if the global self.solace API object is available.
+// This is required as the solclient.js library must be manually edited to support ES module importing.
+// If the library is updated, this check will ensure that the global object is available before proceeding.
 if (typeof self.solace === 'undefined' || typeof self.solace.SolclientFactory !== 'object') {
   console.error("Options Page: Global self.solace API object not found after import!");
-  // You might want to disable the "Test Connection" button or show an error here
-  // if the library fails to initialize.
 } else {
   console.log("Options Page: Global self.solace API object seems available.");
 }
 
 // DOM triggers
-
-// This code adds an event listener to the 'DOMContentLoaded' event, which fires when the HTML document has finished loading.
+// Main event loader entry point.
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     const encryptionKey = await crypt.getEncryptionKey();
@@ -92,7 +90,7 @@ function toggleInputPlaceholder() {
   const inputElements = document.querySelectorAll('input');
 
   inputElements.forEach(input => {
-    if (!input.readOnly) { // Skip read-only inputs
+    if (!input.readOnly) {
       input.addEventListener('focus', () => {
         input.dataset.placeholder = input.placeholder;
         input.placeholder = '';
@@ -254,10 +252,8 @@ async function populateUI() {
 
 async function saveConnection() {
   try {
-    // Set DOM connection ID
     utils.setValue('connectionId', utils.getValue('connectionId') || crypto.randomUUID());
 
-    // Check for any missing fields
     if (!validateMandatoryConnectionFieldValues()) {
       utils.showModalNotification('Error', 'Please fill in all required fields.');
       return;
@@ -281,13 +277,11 @@ async function saveConnection() {
       iv: null
     };
 
-    // Validate JavaScript API Endpoint URL
     if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
       utils.showModalNotification('Invalid protocol', 'For the JavaScript API Enpoint field, please use one of ws://, wss://, http://, https://');
       return;
     }
 
-    // Validate Message VPN URL
     if (!isValidMsgVpnUrl(currentConnection.msgVpnUrl)) {
       utils.showModalNotification('Invalid URL', 'For the Message VPN URL filed, please use a URL matching https://{{your_domain}}.messaging.solace.cloud or http(s?)://localhost:{{your_port}}/');
       return;
@@ -297,13 +291,9 @@ async function saveConnection() {
     if (isEmpty(encryptionKey)) { return; }
 
     // Before saving the connection, test the connection to ensure it is valid
-    // TODO: Refactor testConnection to return a Promise and await it here
     testConnection();
 
-    // Decode base64 encryption key to array buffer
     const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
-
-    // Encrypt the password and store the encrypted string and IV
     await crypt.encryptString(currentConnection.password, encryptionKeyArrayBuffer).then((encryptedData) => {
       currentConnection.password = encryptedData.encryptedString;
       currentConnection.iv = encryptedData.iv;
@@ -355,7 +345,7 @@ function createBlankConnection() {
     // Deselect any currently selected connection.
     document.querySelectorAll('.row').forEach(el => el.classList.remove('selected'));
 
-    let newConnectionId = crypto.randomUUID(); // Generate a unique identifier for the new connection
+    let newConnectionId = crypto.randomUUID();
 
     utils.setValue('connectionId', newConnectionId);
 
@@ -382,19 +372,12 @@ function createBlankConnection() {
  */
 async function deleteOption() {
   try {
-
-    // Get the "selected" connection
     let selectedConnection = document.getElementsByClassName('selected')[0];
-
     if (selectedConnection !== undefined) {
       if (selectedConnection.id !== '') {
-        // Remove from local storage
         await chrome.storage.local.remove(utils.getValue('connectionId'));
       }
-
-      // Remove from DOM
       selectedConnection.remove();
-      // Clear existing input fields for connection details so the user can enter new values.
       clearConnectionFields();
       utils.showToastNotification('Connection deleted!', 'info');
     }
@@ -407,12 +390,10 @@ async function deleteOption() {
 // Test the connection to the Solace PubSub+ Event Broker
 function testConnection() {
 
-  // Initialize the Solace factory
   const factoryProps = new self.solace.SolclientFactoryProperties();
   factoryProps.profile = self.solace.SolclientFactoryProfiles.version10;
   self.solace.SolclientFactory.init(factoryProps);
 
-  // Get the active connection
   const currentConnection = {
     id: utils.getValue('connectionId'),
     smfHost: utils.getValue('smfHost'),
@@ -421,13 +402,11 @@ function testConnection() {
     password: utils.getValue('password'),
   };
 
-  // Validate the mandatory fields
   if (!validateMandatoryConnectionFieldValues()) {
     utils.showModalNotification('Missing mandatory fields', 'Please fill in all required fields.');
     return;
   }
 
-  // Validate URL protocol
   if (!isValidSmfHostProtocol(currentConnection.smfHost)) {
     utils.showModalNotification('Invalid protocol', 'For the Message VPN URL filed, please use one of ws://, wss://, http://, https://');
     return;
@@ -447,7 +426,7 @@ function testConnection() {
     console.error(error);
     utils.showToastNotification(error.message, 'error', 7000);
   }
-  // define session event listeners
+  // Define session event listeners
   session.on(self.solace.SessionEventCode.UP_NOTICE, function (sessionEvent) {
     console.log('=== Successfully connected and ready to view messages. ===');
     utils.showToastNotification('Successfully connected and ready to view messages.', 'success', 7000);
@@ -524,7 +503,6 @@ function promptUserForEncryptionKey() {
     return;
   }
 
-  // Handles the submit button click event
   const handleSubmit = async (event) => {
     try {
       event.stopPropagation();
@@ -538,7 +516,6 @@ function promptUserForEncryptionKey() {
         return;
       }
 
-      // Validate Key Format
       if (!isValidEncryptionKey(inputValue)) {
         messageElement.textContent = 'Invalid Key: Must be >= 8 chars, with uppercase, number, and symbol.';
         messageElement.style.color = 'red';
@@ -547,15 +524,12 @@ function promptUserForEncryptionKey() {
         return;
       }
 
-      // Generate a SHA-256 hash of the encryption key
       const potentialKeyHash = await crypt.generateSHA256Hash(inputValue);
 
-      // Attempt to validate the key against existing data
       let keyIsValid = false;
       const connections = await chrome.storage.local.get();
       let firstEncryptedConnection = null;
 
-      // Find the first encrypted connection in local storage
       for (const id in connections) {
         if (connections[id] && typeof connections[id] === 'object' && connections[id].encrypted) {
           firstEncryptedConnection = connections[id];
@@ -563,10 +537,9 @@ function promptUserForEncryptionKey() {
         }
       }
 
-      // Attempt to validate the key against the existing connection data
+      // Attempt to decrypt the first encrypted connection's password with the provided key
       if (firstEncryptedConnection) {
         try {
-          // Attempt decryption of actual connection data
           await crypt.decryptString(
             firstEncryptedConnection.password,
             firstEncryptedConnection.iv,
@@ -577,7 +550,6 @@ function promptUserForEncryptionKey() {
           console.warn("Descryption failed. Key is likely invalid.");
         }
       } else {
-        // No encrypted connections found. Trust first key entry.
         console.log("No encrypted connections found. Accepting first key entry.");
         keyIsValid = true;
       }
@@ -594,13 +566,12 @@ function promptUserForEncryptionKey() {
         populateUI();
 
       } else {
-        // Key is invalid - Show error in modal, keep it open
         messageElement.textContent = 'Incorrect Key: Failed to decrypt existing data. Please try again.';
         messageElement.style.color = 'red';
         messageElement.style.fontWeight = 'bold';
         inputBox.select();
         inputBox.focus();
-        return; // Stop processing
+        return;
       }
 
     } catch (error) {
@@ -620,12 +591,11 @@ function promptUserForEncryptionKey() {
     resetExtension();
   };
 
-  // Attach Listeners (as before)
   submitButton.removeEventListener('click', handleSubmit);
   submitButton.addEventListener('click', handleSubmit);
   resetButton.removeEventListener('click', handleReset);
   resetButton.addEventListener('click', handleReset);
-} // End of promptUserForEncryptionKey
+}
 
 
 
@@ -656,7 +626,6 @@ function changeKey() {
         inputBox.focus();
         return;
       }
-      // Validate new key format
       if (!isValidEncryptionKey(newKeyValue)) {
         messageElement.textContent = 'Invalid Key: Must be >= 8 chars, with uppercase, number, and symbol.';
         messageElement.style.color = 'red';
@@ -668,7 +637,6 @@ function changeKey() {
       // Re-encryption process will throw an error if the key is invalid
       const newHashedKey = await reencryptConnections(newKeyValue);
 
-      // Save the new base64 encoded hashed key to session
       const base64NewKeyHash = crypt.arrayBufferToBase64(newHashedKey);
       await crypt.setEncryptionKey(base64NewKeyHash);
 
@@ -677,7 +645,6 @@ function changeKey() {
       encryptionKeyInputWindow.remove();
 
     } catch (error) {
-      // Catch errors from reencryptConnections or hashing
       console.error("Error changing encryption key:", error);
       messageElement.textContent = `Error: ${error.message}`;
       messageElement.style.color = 'red';
@@ -689,7 +656,7 @@ function changeKey() {
   submitButton.removeEventListener('click', handleChangeSubmit);
   submitButton.addEventListener('click', handleChangeSubmit);
 
-} // End of changeKey
+}
 
 
 /**
@@ -703,7 +670,6 @@ function changeKey() {
  */
 async function exportConnections() {
   try {
-    // Validate the encryption key
     const encryptionKey = await crypt.getEncryptionKey();
     if (isEmpty(encryptionKey)) { return; }
 
@@ -717,7 +683,6 @@ async function exportConnections() {
     for (const connectionId in connections) {
       const connection = connections[connectionId];
 
-      // Base64 decode the encryption key
       const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
       await crypt.decryptString(connection.password, connection.iv, encryptionKeyArrayBuffer).then((decryptedData) => {
         connection.password = decryptedData;
@@ -756,7 +721,6 @@ async function importFile(file) {
     return;
   }
 
-  // Validate file format
   if (file.type !== "application/json" && !file.name.endsWith('.json')) {
     utils.showModalNotification('Error', 'Invalid file format. Please select a JSON file.');
     return;
@@ -769,17 +733,14 @@ async function importFile(file) {
     reader.onload = async (e) => {
       const connections = JSON.parse(e.target.result);
 
-      // Validate the connections object
       if (!connections || typeof connections !== 'object') {
         throw new Error('Invalid connections object.');
       }
 
-      // Encrypt connection passwords
       for (const connectionId in connections) {
         const connection = connections[connectionId];
-        if (connection.encrypted) { continue; } // Skip already encrypted connections
+        if (connection.encrypted) { continue; }
 
-        // Base64 decode the encryption key
         const encryptionKeyArrayBuffer = crypt.base64ToArrayBuffer(encryptionKey);
 
         await crypt.encryptString(connection.password, encryptionKeyArrayBuffer).then((encryptedData) => {
@@ -823,7 +784,6 @@ function resetExtension() {
       utils.showModalNotification("UI Error", "Could not create the reset confirmation window properly.");
       return;
     }
-    // Handle the reset confirmation button click
     const handleResetConfirmation = async (event) => {
       event.stopPropagation();
       chrome.storage.local.clear();
@@ -864,7 +824,6 @@ async function getConnection() {
       utils.setValue('connectionId', this.id);
       return;
     }
-
 
     // Extracts the connection details specific to the clicked connection ID
     connection = connection[this.id];

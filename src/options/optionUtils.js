@@ -58,28 +58,26 @@ export function handleError(error) {
  */
 export function showToastNotification(message, type = 'success', timeout = 3000) {
     const toast = document.createElement('div');
-    // Calculate the vertical offset based on the number of existing toasts
     const existingToasts = document.querySelectorAll('.toast');
     const verticalOffset = 20 + existingToasts.length * 45; // 20px is the initial top offset, 60px is the height+margin of each toast
 
-    toast.className = 'toast'; // Add a class for easier selection
+    toast.className = 'toast';
     toast.style.position = 'fixed';
-    toast.style.top = `${verticalOffset}px`; // Use the calculated vertical offset
+    toast.style.top = `${verticalOffset}px`;
     toast.style.right = '20px';
-    // Set background color based on the type of notification
     switch (type) {
         case 'info':
-            toast.style.backgroundColor = '#2196F3'; // Blue for info
+            toast.style.backgroundColor = '#2196F3';
             break;
         case 'error':
-            toast.style.backgroundColor = '#D32F2F'; // Red for errors
+            toast.style.backgroundColor = '#D32F2F';
             break;
         case 'warning':
-            toast.style.backgroundColor = '#FFA000'; // Amber for warnings
+            toast.style.backgroundColor = '#FFA000';
             break;
         case 'success':
         default:
-            toast.style.backgroundColor = '#04AA6D'; // Green for success
+            toast.style.backgroundColor = '#04AA6D';
             break;
     }
     toast.style.color = 'white';
@@ -98,11 +96,10 @@ export function showToastNotification(message, type = 'success', timeout = 3000)
 
     document.body.appendChild(toast);
 
-    // Fade out the toast after 3 seconds
     setTimeout(() => {
         toast.style.transition = 'opacity 0.5s';
         toast.style.opacity = '0';
-        setTimeout(() => document.body.removeChild(toast), 500);
+        setTimeout(() => document.body.removeChild(toast), 500); // Remove the toast after the fade-out transition
     }, timeout);
 }
 
@@ -173,15 +170,10 @@ export function showModalNotification(title, message, reload = false) {
         }
     });
 
-
-    // Append the heading, message, and close button to the content
     content.appendChild(heading);
     content.appendChild(messageElement);
     content.appendChild(closeButton);
-    // Append the content to the modal
     modal.appendChild(content);
-
-    // Append the modal to the body
     document.body.appendChild(modal);
 }
 
@@ -196,6 +188,7 @@ export function showModalNotification(title, message, reload = false) {
  * @param {boolean} resetOption - Whether to include a reset button in the modal.
  */
 export function displayEncryptionKeyInputWindow(title, defaultMessage = '', cancelOption = false, resetOption = false, errorMessage = null) {
+
     // Create the modal backdrop
     const modal = document.createElement('div');
     modal.id = 'encryption-key-window';
@@ -206,6 +199,7 @@ export function displayEncryptionKeyInputWindow(title, defaultMessage = '', canc
     modal.style.left = '0';
     modal.style.background = 'rgba(0, 0, 0, 0.7)';
     modal.style.zIndex = '1001';
+
     // Create the modal content
     const content = document.createElement('div');
     content.style.position = 'fixed';
@@ -220,10 +214,12 @@ export function displayEncryptionKeyInputWindow(title, defaultMessage = '', canc
     content.style.borderRadius = '10px';
     content.style.fontSize = '16px';
     content.style.lineHeight = '1.5';
+
     // Create the heading
     const heading = document.createElement('h1');
     heading.innerHTML = title;
     heading.style.marginBottom = '10px';
+
     // Create the message element
     const messageElement = document.createElement('p');
 	messageElement.id = 'encryption-key-window-message-id';
@@ -258,7 +254,6 @@ export function displayEncryptionKeyInputWindow(title, defaultMessage = '', canc
     eyeIcon.style.transform = 'translateY(-50%)';
     eyeIcon.style.cursor = 'pointer';
 
-    // Add event listener to toggle password visibility
     eyeIcon.addEventListener('click', () => {
         if (inputElement.type === 'password') {
             inputElement.type = 'text';
@@ -271,24 +266,24 @@ export function displayEncryptionKeyInputWindow(title, defaultMessage = '', canc
     const inputWrapper = document.createElement('div');
     inputWrapper.style.position = 'relative';
     inputWrapper.style.display = 'inline-block';
-    inputWrapper.style.width = '100%'; // Make wrapper responsive
+    inputWrapper.style.width = '100%';
     inputWrapper.appendChild(inputElement);
     inputWrapper.appendChild(eyeIcon);
 
     // Create the password requirements element
     const requirementsContainer = document.createElement('div');
-    requirementsContainer.style.textAlign = 'center'; // Center align the contents
-    requirementsContainer.style.marginTop = '20px'; // Add some margin at the top
+    requirementsContainer.style.textAlign = 'center';
+    requirementsContainer.style.marginTop = '20px';
 
     const requirementsHeading = document.createElement('div');
     requirementsHeading.textContent = 'Password Requirements:';
-    requirementsHeading.style.fontWeight = 'bold'; // Make the heading bold
-    requirementsHeading.style.marginBottom = '10px'; // Add some margin below the heading
+    requirementsHeading.style.fontWeight = 'bold';
+    requirementsHeading.style.marginBottom = '10px';
 
     const requirementsElement = document.createElement('ul');
-    requirementsElement.style.listStyleType = 'none'; // Remove default list styling
-    requirementsElement.style.paddingLeft = '0'; // Remove default padding
-    requirementsElement.style.marginTop = '0'; // Remove default margin
+    requirementsElement.style.listStyleType = 'none';
+    requirementsElement.style.paddingLeft = '0';
+    requirementsElement.style.marginTop = '0';
 
     const requirement1 = document.createElement('li');
     requirement1.textContent = 'At least 8 characters';
@@ -372,13 +367,12 @@ export function displayEncryptionKeyInputWindow(title, defaultMessage = '', canc
     content.appendChild(inputWrapper);
     content.appendChild(buttonContainer);
 
-    // Append the content to the modal
     modal.appendChild(content);
-    // Append the modal to the body
     document.body.appendChild(modal);
-} // end of displayEncryptionKeyInputWindow
+}
 
 export function showResetConfirmationWindow() {
+
     // Create the modal backdrop
     const modal = document.createElement('div');
     modal.id = 'reset-confirmation-window';
@@ -389,6 +383,7 @@ export function showResetConfirmationWindow() {
     modal.style.left = '0';
     modal.style.background = 'rgba(0, 0, 0, 0.7)';
     modal.style.zIndex = '1001';
+
     // Create the modal content
     const content = document.createElement('div');
     content.style.position = 'fixed';
@@ -401,19 +396,23 @@ export function showResetConfirmationWindow() {
     content.style.borderRadius = '10px';
     content.style.fontSize = '16px';
     content.style.lineHeight = '1.5';
+
     // Create the heading
     const heading = document.createElement('h1');
     heading.innerHTML = 'Reset Confirmation';
     heading.style.marginBottom = '10px';
+
     // Create the message element
     const messageElement = document.createElement('p');
     messageElement.id = 'reset-confirmation-message-id';
     messageElement.innerHTML = 'Are you sure you want to factory reset this extension?';
+
     // Create the button container
     const buttonContainer = document.createElement('div');
     buttonContainer.style.display = 'flex';
     buttonContainer.style.justifyContent = 'space-between';
     buttonContainer.style.marginTop = '20px';
+
     // Create the close button
     const closeButton = document.createElement('button');
     closeButton.textContent = 'Close';
@@ -426,12 +425,11 @@ export function showResetConfirmationWindow() {
     closeButton.style.borderRadius = '5px';
     closeButton.style.cursor = 'pointer';
     closeButton.textContent = 'Close';
-    // Remove the modal when the close button is clicked
+    
     closeButton.addEventListener('click', (event) => {
         document.body.removeChild(modal);
     });
 
-    // Trigger close button click when Enter key is pressed
     closeButton.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             closeButton.click();
@@ -450,14 +448,12 @@ export function showResetConfirmationWindow() {
     submitButton.style.color = 'white';
     submitButton.style.borderRadius = '5px';
     submitButton.style.cursor = 'pointer';
-    // Append buttons to the button container
+    
     buttonContainer.appendChild(submitButton);
     buttonContainer.appendChild(closeButton);
     content.appendChild(heading);
     content.appendChild(messageElement);
     content.appendChild(buttonContainer);
-    // Append the content to the modal
     modal.appendChild(content);
-    // Append the modal to the body
     document.body.appendChild(modal);
 }

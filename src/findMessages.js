@@ -22,7 +22,6 @@ export async function requestEncryptionKeyFromUser() {
             await chrome.tabs.sendMessage(tabs[0].id, { action: "requestEncryptionKey" });
         } else {
             console.error("Could not find active tab to request encryption key.");
-            // Consider sending an error back to options page if triggered from there?
         }
     } catch (error) {
         console.error("Error sending requestEncryptionKey message:", error);
@@ -105,7 +104,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             return;
         }
         
-        const pageOrigin = new URL(url).origin; // Get "protocol://hostname:port" reliably
+        const pageOrigin = new URL(url).origin;
         console.log("Detected page origin:", pageOrigin);
 
         // Find active connection
@@ -113,7 +112,6 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         const connections = await chrome.storage.local.get();
         for (const connectionId in connections) {
             const connection = connections[connectionId];
-            // Ensure connection has a msgVpnUrl before comparing
             if (connection && connection.msgVpnUrl) {
                 try {
                     const connectionOrigin = new URL(connection.msgVpnUrl).origin;
@@ -136,7 +134,6 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         // Decrypt password if it is encrypted
         if (activeConnection.encrypted) {
             try {
-                // Assuming base64ToArrayBuffer and decryptString are defined elsewhere
                 const encryptionKeyArrayBuffer = base64ToArrayBuffer(encryptionKey);
                 const decryptedData = await decryptString(activeConnection.password, activeConnection.iv, encryptionKeyArrayBuffer);
                 activeConnection.password = decryptedData;
@@ -157,7 +154,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         }
         
         // Login to Solace
-        let session = solace.SolclientFactory.createSession({ // Use 'let' to allow reassignment to null
+        let session = solace.SolclientFactory.createSession({
             url: activeConnection.smfHost,
             vpnName: activeConnection.msgVpn,
             userName: activeConnection.userName,
@@ -169,7 +166,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         let connectionActive = true;
 
         session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, function (sessionEvent) {
-            connectionActive = false; // Mark connection as inactive
+            connectionActive = false;
             let errorTitle = 'Connection Failed';
             let errorMessage = `${sessionEvent.message || sessionEvent.infoStr}. | Solace Error Code: ${sessionEvent.errorSubcode}`;
 
@@ -183,11 +180,9 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                 case solace.ErrorSubcode.CLIENT_ACL_DENIED:
                     errorMessage = `Client IP address not allowed by ACL. | Solace Error Code: ${sessionEvent.errorSubcode}`;
                     break;
-                // Add more specific cases if needed
             }
             console.error(errorTitle, errorMessage, sessionEvent);
             sendErrorToPage(errorTitle, errorMessage);
-            // Clean up session if it exists
             if (session) {
                 session.dispose();
                 session = null;
@@ -195,7 +190,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
         });
 
         session.on(solace.SessionEventCode.DISCONNECTED, function (sessionEvent) {
-            connectionActive = false; // Mark connection as inactive
+            connectionActive = false;
             console.log('=== Session Disconnected ===');
             if (session !== null) {
                 session.dispose();
@@ -218,30 +213,24 @@ async function queryMessagesFromQueue(dynamicQueueName) {
 
             qb.on(solace.QueueBrowserEventName.UP, () => {
                 console.log('Connected to Queue Browser. Waiting for messages...');
-                // Maybe send a status update to the page? Optional.
-                // sendStatusToPage("Connected to queue, browsing messages...");
             });
 
             qb.on(solace.QueueBrowserEventName.DOWN, () => {
                 queueBrowserActive = false;
                 console.log('=== Queue Browser Disconnected ===');
-                // This might happen naturally due to timeout/disconnect call, or due to an error.
-                // Storage logic is handled in the main timeout below.
             });
 
             qb.on(solace.QueueBrowserEventName.CONNECT_FAILED_ERROR, (error) => {
                 queueBrowserActive = false;
-                connectionActive = false; // Also mark session connection potentially problematic
+                connectionActive = false;
                 console.error(`Queue Browser Connection Error: ${error.message}`, error.reason);
                 sendErrorToPage('Queue Browser Error', `${error.message}. Reason: ${JSON.stringify(error.reason)}`);
-                // Attempt to clean up session
                 if (session) {
                     try { session.disconnect(); } catch (e) { /* ignore */ }
                 }
             });
 
             qb.on(solace.QueueBrowserEventName.MESSAGE, (message) => {
-                // Only collect messages if the connection is still considered active
                 if (!connectionActive || !queueBrowserActive) {
                     console.log("Ignoring message received after disconnect/error.");
                     return;
@@ -250,12 +239,17 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                 const appMsgId = message.getApplicationMessageId();
                 const destination = message.getDestination();
                 const messageId = message.getGuaranteedMessageId().toString();
+                
+                const userData = message.getUserData();
+                console.log("userData:", userData);
+                const senderId = message.getSenderId();
+                console.log("senderId:", senderId);
+
 
                 let queuedMsg = null;
                 let userPropsList = {};
                 let metadataPropList = {};
 
-                // Retrieves User Properties
                 if (activeConnection.showUserProps) {
                     let userProps = message.getUserPropertyMap();
                     if (userProps) {
@@ -282,7 +276,6 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                     }
                 }
 
-                // Send the message to the page
                 sendPayloadToPage({
                     messageId: messageId,
                     metadataPropList: metadataPropList,
@@ -292,7 +285,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                 
             });
 
-            qb.connect(); // Connect QueueBrowser
+            qb.connect();
 
             // Timeout to stop browsing and store results
             const browseTimeout = 60000; // 60 seconds
@@ -301,7 +294,7 @@ async function queryMessagesFromQueue(dynamicQueueName) {
                 if (qb !== null && queueBrowserActive) {
                     try {
                         qb.disconnect();
-                        queueBrowserActive = false; // Mark as explicitly disconnected
+                        queueBrowserActive = false;
                     } catch (error) {
                         console.error("Error disconnecting queue browser:", error.toString());
                     }
@@ -318,11 +311,11 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             connectionActive = false;
             console.error("Session connect() call failed:", connectError);
             sendErrorToPage("Connection Error", `Failed to initiate connection: ${connectError.message}`);
-            if (session) { // Clean up partially created session
+            if (session) {
                 session.dispose();
                 session = null;
             }
-            return; // Stop further execution
+            return;
         }
 
 
@@ -333,7 +326,6 @@ async function queryMessagesFromQueue(dynamicQueueName) {
             if (session !== null) {
                 try {
                     session.disconnect();
-                    // Session object will be disposed via the DISCONNECTED event handler
                 } catch (error) {
                     console.error("Error disconnecting session:", error.toString());
                 }
@@ -345,9 +337,6 @@ async function queryMessagesFromQueue(dynamicQueueName) {
     } catch (error) {
         console.error("General error in queryMessagesFromQueue:", error);
         sendErrorToPage(error.name || "Error", error.message || "An unknown error occurred during message querying.");
-        // Ensure potential session cleanup if error happened after creation but before connect logic
-        // Note: The session object might not be defined depending on where the error occurred.
-        // Consider adding cleanup logic in a finally block if needed.
     }
 }
 
